@@ -880,7 +880,8 @@
 
                     <div class="form-group">
                         <label for="invoiceNumber">Invoice Number *</label>
-                        <input type="text" id="invoiceNumber" required placeholder="Enter invoice number">
+                        <input type="text" id="invoiceNumber" required placeholder="Enter invoice number (e.g., INV-2024/001)">
+                        <small style="color: #6c757d; font-size: 14px; display: block; margin-top: 5px;">Allowed: Letters, Numbers, Spaces, -, _, /</small>
                     </div>
 
                     <div class="form-group">
@@ -1436,6 +1437,13 @@
             
             if (!invoiceNumber || invoiceNumber.trim() === '') {
                 showToast('error', 'Validation Error', 'Invoice Number is required.');
+                return;
+            }
+            
+            // Invoice number format validation - only alphanumeric, spaces, hyphens, underscores, and forward slashes allowed
+            const invoiceNumberPattern = /^[a-zA-Z0-9\s\-_\/]+$/;
+            if (!invoiceNumberPattern.test(invoiceNumber)) {
+                showToast('error', 'Invalid Invoice Number', 'Invoice number can only contain letters, numbers, spaces, hyphens (-), underscores (_), and forward slashes (/). Special characters like @, #, $, %, & are not allowed.');
                 return;
             }
             
