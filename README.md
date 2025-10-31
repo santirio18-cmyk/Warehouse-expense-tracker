@@ -24,7 +24,7 @@ The web version includes everything from the Android app plus:
 - **Fraud Prevention**: 
   - Duplicate invoice detection per warehouse
   - Vendor name validation
-  - Date range restrictions (90 days back, 30 days forward)
+  - Date range restrictions (45 days back, 30 days forward)
   - Maximum amount limits (₹10,00,000)
   - Same-day same-vendor fraud detection
 - **Employee Code**: Required field for user creation

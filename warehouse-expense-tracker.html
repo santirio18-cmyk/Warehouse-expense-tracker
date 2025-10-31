@@ -1474,12 +1474,12 @@
                 return;
             }
             
-            // Date validation - cannot be older than 90 days
+            // Date validation - cannot be older than 45 days
             const minDate = new Date(today);
-            minDate.setDate(today.getDate() - 90);
+            minDate.setDate(today.getDate() - 45);
             
             if (submittedDate < minDate) {
-                showToast('error', 'Date Error', 'Expense date cannot be older than 90 days.');
+                showToast('error', 'Date Error', 'Invoice date cannot be older than 45 days.');
                 return;
             }
             
