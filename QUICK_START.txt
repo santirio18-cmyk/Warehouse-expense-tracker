@@ -1,0 +1,79 @@
+================================================================================
+   WAREHOUSE EXPENSE TRACKER - QUICK START GUIDE
+================================================================================
+
+📋 YOUR FILES:
+--------------
+✅ warehouse-expense-tracker.html  (Main application - 109KB)
+✅ index.html                       (Redirect page)
+✅ README.md                        (Full documentation)
+✅ DEPLOYMENT_GUIDE.md             (Deployment instructions)
+✅ QUICK_DEPLOY.md                 (Quick deployment steps)
+✅ setup-deployment.sh             (Automated setup script)
+
+================================================================================
+🚀 EASIEST WAY TO SHARE (CHOOSE ONE):
+================================================================================
+
+OPTION A: NETLIFY (FASTEST - 1 minute)
+---------------------------------------
+1. Go to: https://www.netlify.com
+2. Sign up (free)
+3. Drag & drop warehouse-expense-tracker.html
+4. Share the URL they give you
+
+OPTION B: GITHUB PAGES (BEST - 5 minutes)
+------------------------------------------
+1. Go to: https://github.com
+2. Create a new repository
+3. Upload warehouse-expense-tracker.html
+4. Settings → Pages → Enable
+5. Share: https://YOUR_USERNAME.github.io/REPO_NAME/
+
+OPTION C: LOCAL SHARING (OFFICE NETWORK)
+----------------------------------------
+1. Make sure your file is on a web server
+2. Find your IP: ifconfig | grep inet
+3. Share: http://YOUR_IP/warehouse-expense-tracker.html
+
+================================================================================
+🔐 DEFAULT LOGINS:
+================================================================================
+
+Admin (Master):
+  Username: admin
+  Password: admin123
+
+Warehouse Managers:
+  Username: warehouse_1, warehouse_2, ... warehouse_28
+  Password: pass123
+
+================================================================================
+📝 RUN THE SETUP SCRIPT:
+================================================================================
+
+Open terminal and run:
+  cd /Users/santhoshpremkumar/AndroidStudioProjects/MyApplication
+  ./setup-deployment.sh
+
+================================================================================
+⚠️  IMPORTANT NOTES:
+================================================================================
+
+• Data is stored in EACH USER'S browser (localStorage)
+• Users don't share data automatically
+• If you need shared data, you need a backend database
+• The file works offline once opened in a browser
+• All data is lost if browser cache is cleared
+
+================================================================================
+📚 HELP:
+================================================================================
+
+Read: DEPLOYMENT_GUIDE.md for detailed instructions
+Read: README.md for full feature list
+
+For issues: Check browser console (F12)
+
+================================================================================
+

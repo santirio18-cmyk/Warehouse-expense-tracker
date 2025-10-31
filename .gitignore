@@ -1,0 +1,29 @@
+# Build files
+build/
+.gradle/
+*.apk
+*.ap_
+*.aab
+
+# Android Studio
+.idea/
+*.iml
+.navigation/
+captures/
+output.json
+
+# Local configuration
+local.properties
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Keep HTML files for deployment
+!*.html
+!index.html
