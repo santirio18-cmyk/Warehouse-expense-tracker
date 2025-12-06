@@ -427,6 +427,11 @@
             background: #dc3545;
         }
 
+        .user-role.approver {
+            background: #ffc107;
+            color: #000;
+        }
+
         .user-role.warehouse {
             background: #28a745;
         }
@@ -1191,8 +1196,16 @@
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="newWarehouse">Warehouse</label>
-                                <select id="newWarehouse" required>
+                                <label for="newRole">Role</label>
+                                <select id="newRole" required onchange="toggleWarehouseField()">
+                                    <option value="master">Master (Full Access)</option>
+                                    <option value="approver">Approver (All Access Except User Creation)</option>
+                                    <option value="warehouse">Warehouse Entry (Entry Only)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="warehouseFieldGroup">
+                                <label for="newWarehouse">Warehouse (Hold Ctrl/Cmd to select multiple)</label>
+                                <select id="newWarehouse" multiple size="8" style="min-height: 150px;">
                                     <option value="warehouse_1">Warehouse 1</option>
                                     <option value="warehouse_2">Warehouse 2</option>
                                     <option value="warehouse_3">Warehouse 3</option>
@@ -1222,6 +1235,9 @@
                                     <option value="warehouse_27">Warehouse 27</option>
                                     <option value="warehouse_28">Warehouse 28</option>
                                 </select>
+                                <small style="color: #6c757d; font-size: 12px; display: block; margin-top: 5px;">
+                                    💡 Tip: Select multiple warehouses or leave empty for "All Warehouses"
+                                </small>
                             </div>
                         </div>
                         <button type="submit" class="btn btn-success">➕ Add User</button>
@@ -1244,39 +1260,30 @@
         function getUsers() {
             const storedUsers = localStorage.getItem('warehouseUsers');
             if (storedUsers) {
-                return JSON.parse(storedUsers);
+                const parsedUsers = JSON.parse(storedUsers);
+                // Clean up: Remove all old warehouse users (warehouse_1 to warehouse_28) and keep only admin
+                const cleanedUsers = {};
+                Object.keys(parsedUsers).forEach(username => {
+                    // Keep only admin user, remove all warehouse_* users
+                    if (username === 'admin') {
+                        cleanedUsers[username] = parsedUsers[username];
+                    } else if (!username.startsWith('warehouse_')) {
+                        // Keep other custom users (approvers, etc.) but not default warehouse users
+                        cleanedUsers[username] = parsedUsers[username];
+                    }
+                });
+                
+                // If admin doesn't exist, add it
+                if (!cleanedUsers['admin']) {
+                    cleanedUsers['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
+                }
+                
+                localStorage.setItem('warehouseUsers', JSON.stringify(cleanedUsers));
+                return cleanedUsers;
             } else {
-                // Initial users
+                // Initial users - Only Master Admin
                 const defaultUsers = {
-                    'admin': { password: 'admin123', role: 'master', name: 'Master Admin' },
-                    'warehouse_1': { password: 'pass123', role: 'warehouse', name: 'Warehouse 1 Manager', warehouse: 'warehouse_1' },
-                    'warehouse_2': { password: 'pass123', role: 'warehouse', name: 'Warehouse 2 Manager', warehouse: 'warehouse_2' },
-                    'warehouse_3': { password: 'pass123', role: 'warehouse', name: 'Warehouse 3 Manager', warehouse: 'warehouse_3' },
-                    'warehouse_4': { password: 'pass123', role: 'warehouse', name: 'Warehouse 4 Manager', warehouse: 'warehouse_4' },
-                    'warehouse_5': { password: 'pass123', role: 'warehouse', name: 'Warehouse 5 Manager', warehouse: 'warehouse_5' },
-                    'warehouse_6': { password: 'pass123', role: 'warehouse', name: 'Warehouse 6 Manager', warehouse: 'warehouse_6' },
-                    'warehouse_7': { password: 'pass123', role: 'warehouse', name: 'Warehouse 7 Manager', warehouse: 'warehouse_7' },
-                    'warehouse_8': { password: 'pass123', role: 'warehouse', name: 'Warehouse 8 Manager', warehouse: 'warehouse_8' },
-                    'warehouse_9': { password: 'pass123', role: 'warehouse', name: 'Warehouse 9 Manager', warehouse: 'warehouse_9' },
-                    'warehouse_10': { password: 'pass123', role: 'warehouse', name: 'Warehouse 10 Manager', warehouse: 'warehouse_10' },
-                    'warehouse_11': { password: 'pass123', role: 'warehouse', name: 'Warehouse 11 Manager', warehouse: 'warehouse_11' },
-                    'warehouse_12': { password: 'pass123', role: 'warehouse', name: 'Warehouse 12 Manager', warehouse: 'warehouse_12' },
-                    'warehouse_13': { password: 'pass123', role: 'warehouse', name: 'Warehouse 13 Manager', warehouse: 'warehouse_13' },
-                    'warehouse_14': { password: 'pass123', role: 'warehouse', name: 'Warehouse 14 Manager', warehouse: 'warehouse_14' },
-                    'warehouse_15': { password: 'pass123', role: 'warehouse', name: 'Warehouse 15 Manager', warehouse: 'warehouse_15' },
-                    'warehouse_16': { password: 'pass123', role: 'warehouse', name: 'Warehouse 16 Manager', warehouse: 'warehouse_16' },
-                    'warehouse_17': { password: 'pass123', role: 'warehouse', name: 'Warehouse 17 Manager', warehouse: 'warehouse_17' },
-                    'warehouse_18': { password: 'pass123', role: 'warehouse', name: 'Warehouse 18 Manager', warehouse: 'warehouse_18' },
-                    'warehouse_19': { password: 'pass123', role: 'warehouse', name: 'Warehouse 19 Manager', warehouse: 'warehouse_19' },
-                    'warehouse_20': { password: 'pass123', role: 'warehouse', name: 'Warehouse 20 Manager', warehouse: 'warehouse_20' },
-                    'warehouse_21': { password: 'pass123', role: 'warehouse', name: 'Warehouse 21 Manager', warehouse: 'warehouse_21' },
-                    'warehouse_22': { password: 'pass123', role: 'warehouse', name: 'Warehouse 22 Manager', warehouse: 'warehouse_22' },
-                    'warehouse_23': { password: 'pass123', role: 'warehouse', name: 'Warehouse 23 Manager', warehouse: 'warehouse_23' },
-                    'warehouse_24': { password: 'pass123', role: 'warehouse', name: 'Warehouse 24 Manager', warehouse: 'warehouse_24' },
-                    'warehouse_25': { password: 'pass123', role: 'warehouse', name: 'Warehouse 25 Manager', warehouse: 'warehouse_25' },
-                    'warehouse_26': { password: 'pass123', role: 'warehouse', name: 'Warehouse 26 Manager', warehouse: 'warehouse_26' },
-                    'warehouse_27': { password: 'pass123', role: 'warehouse', name: 'Warehouse 27 Manager', warehouse: 'warehouse_27' },
-                    'warehouse_28': { password: 'pass123', role: 'warehouse', name: 'Warehouse 28 Manager', warehouse: 'warehouse_28' }
+                    'admin': { password: 'admin123', role: 'master', name: 'Master Admin' }
                 };
                 localStorage.setItem('warehouseUsers', JSON.stringify(defaultUsers));
                 return defaultUsers;
@@ -1291,11 +1298,25 @@
         let budgets = JSON.parse(localStorage.getItem('warehouseBudgets')) || {};
         let currentFilter = 'all';
         let currentApprovalFilter = 'all';
+        
+        // Helper function to check if user has access to a warehouse
+        function hasWarehouseAccess(user, warehouse) {
+            if (!user.warehouse || user.warehouse === '') {
+                return true; // Empty means all warehouses
+            }
+            const userWarehouses = user.warehouse.split(',');
+            return userWarehouses.includes(warehouse);
+        }
 
         // Initialize
         document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
         document.getElementById('expenseTime').value = new Date().toTimeString().slice(0, 5);
         document.getElementById('budgetMonth').value = new Date().toISOString().slice(0, 7);
+        
+        // Initialize warehouse field visibility
+        if (document.getElementById('newRole')) {
+            toggleWarehouseField();
+        }
         
         // Toast notification function
         function showToast(type, title, message) {
@@ -1341,14 +1362,31 @@
                 document.getElementById('userRole').textContent = users[username].role.toUpperCase();
                 document.getElementById('userRole').className = `user-role ${users[username].role}`;
                 
-                // Show warehouse selector for master users ONLY
+                // Show features based on role
                 if (users[username].role === 'master') {
+                    // Master: Full access
                     document.getElementById('warehouseSelector').style.display = 'block';
                     document.getElementById('usersTab').style.display = 'block';
                     document.getElementById('approvalsTab').style.display = 'block';
+                    // Reload users to ensure cleanup is applied
+                    users = getUsers();
                     loadUsers();
+                } else if (users[username].role === 'approver') {
+                    // Approver: All access except user creation
+                    document.getElementById('warehouseSelector').style.display = 'block';
+                    document.getElementById('usersTab').style.display = 'none';
+                    document.getElementById('approvalsTab').style.display = 'block';
+                    // Set warehouse selector to 'all' if approver has multiple or all warehouses
+                    if (!users[username].warehouse || users[username].warehouse === '' || users[username].warehouse.includes(',')) {
+                        document.getElementById('warehouseSelect').value = 'all';
+                        currentWarehouse = 'all';
+                    } else {
+                        // Single warehouse assignment
+                        document.getElementById('warehouseSelect').value = users[username].warehouse;
+                        currentWarehouse = users[username].warehouse;
+                    }
                 } else {
-                    // Explicitly hide master-only features for warehouse users
+                    // Warehouse: Entry only
                     document.getElementById('warehouseSelector').style.display = 'none';
                     document.getElementById('usersTab').style.display = 'none';
                     document.getElementById('approvalsTab').style.display = 'none';
@@ -1498,7 +1536,14 @@
             // Process the form submission
             const processSubmission = async () => {
                 // Determine the warehouse
-                const warehouse = users[currentUser].role === 'warehouse' ? users[currentUser].warehouse : (currentWarehouse || 'warehouse_1');
+                // For warehouse users, use first assigned warehouse; for others use selector or default
+                let warehouse;
+                if (users[currentUser].role === 'warehouse') {
+                    const userWarehouses = users[currentUser].warehouse ? users[currentUser].warehouse.split(',') : [];
+                    warehouse = userWarehouses.length > 0 ? userWarehouses[0] : 'warehouse_1';
+                } else {
+                    warehouse = currentWarehouse || 'warehouse_1';
+                }
                 
                 // Vendor name validation - prevent suspicious patterns
                 const vendorNameLower = vendorName.toLowerCase();
@@ -1603,21 +1648,34 @@
             const expenseList = document.getElementById('expenseList');
             let filteredExpenses = expenses;
             
-            // Filter by warehouse - Master users can see all or specific warehouse, warehouse users only see their own
+            // Filter by warehouse based on user role
             if (users[currentUser].role === 'warehouse') {
-                // Warehouse users can see their own warehouse data (including pending expenses they created)
+                // Warehouse users: only see their assigned warehouse expenses
                 filteredExpenses = filteredExpenses.filter(expense => {
-                    // Check if warehouse matches
-                    const warehouseMatch = expense.warehouse === users[currentUser].warehouse;
-                    // Check if status is approved OR pending (warehouse users can see their pending expenses)
+                    const warehouseMatch = hasWarehouseAccess(users[currentUser], expense.warehouse);
                     const statusMatch = expense.status === 'approved' || expense.status === 'pending' || !expense.status;
                     return warehouseMatch && statusMatch;
                 });
+            } else if (users[currentUser].role === 'approver') {
+                // Approver: see warehouses based on their assignment
+                if (currentWarehouse && currentWarehouse !== 'all') {
+                    // Filter by warehouse selector if set
+                    if (hasWarehouseAccess(users[currentUser], currentWarehouse)) {
+                        filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
+                    } else {
+                        filteredExpenses = []; // No access to selected warehouse
+                    }
+                } else if (users[currentUser].warehouse && users[currentUser].warehouse !== '') {
+                    // Filter by approver's warehouse assignment
+                    const userWarehouses = users[currentUser].warehouse.split(',');
+                    filteredExpenses = filteredExpenses.filter(expense => userWarehouses.includes(expense.warehouse));
+                }
+                // If approver has no warehouse assignment (empty), show all
             } else if (currentWarehouse && currentWarehouse !== 'all') {
                 // Master users can filter by specific warehouse
                 filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
             }
-            // If master user selects 'all' or no filter, show all expenses
+            // If master/approver selects 'all' or no filter, show all expenses (or assigned warehouses)
             
             // Apply date filter
             const now = new Date();
@@ -1736,17 +1794,29 @@
                 filteredExpenses = filteredExpenses.filter(expense => expense.date <= toDate);
             }
             
-            // Filter by warehouse - Master users can see all or specific warehouse, warehouse users only see their own
+            // Filter by warehouse based on user role
             if (users[currentUser].role === 'warehouse') {
-                // Warehouse users can only see their own warehouse data and only approved expenses
+                // Warehouse users: only see their assigned warehouse approved expenses
                 filteredExpenses = filteredExpenses.filter(expense => 
-                    expense.warehouse === users[currentUser].warehouse && expense.status === 'approved'
+                    hasWarehouseAccess(users[currentUser], expense.warehouse) && expense.status === 'approved'
                 );
+            } else if (users[currentUser].role === 'approver') {
+                // Approver: filter by warehouse selector or warehouse mapping
+                if (currentWarehouse && currentWarehouse !== 'all') {
+                    if (hasWarehouseAccess(users[currentUser], currentWarehouse)) {
+                        filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
+                    } else {
+                        filteredExpenses = [];
+                    }
+                } else if (users[currentUser].warehouse && users[currentUser].warehouse !== '') {
+                    const userWarehouses = users[currentUser].warehouse.split(',');
+                    filteredExpenses = filteredExpenses.filter(expense => userWarehouses.includes(expense.warehouse));
+                }
             } else if (currentWarehouse && currentWarehouse !== 'all') {
                 // Master users can filter by specific warehouse
                 filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
             }
-            // If master user selects 'all' or no filter, show all expenses
+            // If master/approver selects 'all' or no filter, show all expenses (or assigned warehouses)
             
             const totalAmount = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
             const totalCount = filteredExpenses.length;
@@ -1847,8 +1917,8 @@
         let uploadedBudgetData = {};
         
         function loadBudgetManagement() {
-            // Only show budget management for master users
-            if (users[currentUser].role !== 'master') {
+            // Show budget management for master and approver users
+            if (users[currentUser].role === 'warehouse') {
                 document.getElementById('budgetManagementSection').style.display = 'none';
                 return;
             }
@@ -2166,6 +2236,23 @@
             URL.revokeObjectURL(url);
         }
 
+        // Toggle warehouse field based on role
+        function toggleWarehouseField() {
+            const role = document.getElementById('newRole').value;
+            const warehouseFieldGroup = document.getElementById('warehouseFieldGroup');
+            const warehouseSelect = document.getElementById('newWarehouse');
+            
+            warehouseFieldGroup.style.display = 'block';
+            
+            if (role === 'warehouse') {
+                // Warehouse role requires at least one warehouse
+                warehouseSelect.required = true;
+            } else {
+                // Master and Approver can have all warehouses (empty) or specific ones
+                warehouseSelect.required = false;
+            }
+        }
+        
         // Load users (Master Admin only)
         function loadUsers() {
             const userList = document.getElementById('userList');
@@ -2175,7 +2262,7 @@
                     <p><strong>Username:</strong> ${username}</p>
                     <p><strong>Employee Code:</strong> ${user.employeeCode || 'N/A'}</p>
                     <p><strong>Role:</strong> <span class="user-role ${user.role}">${user.role.toUpperCase()}</span></p>
-                    ${user.warehouse ? `<p><strong>Warehouse:</strong> ${user.warehouse}</p>` : ''}
+                    <p><strong>Warehouse:</strong> ${user.warehouse && user.warehouse !== '' ? (user.warehouse.includes(',') ? user.warehouse.split(',').join(', ') : user.warehouse) : 'All Warehouses'}</p>
                     <button onclick="deleteUser('${username}')" class="btn btn-danger" style="width: 100%; margin-top: 10px; padding: 8px;">🗑️ Delete User</button>
                 </div>
             `).join('');
@@ -2189,19 +2276,30 @@
             const password = document.getElementById('newPassword').value;
             const name = document.getElementById('newName').value;
             const employeeCode = document.getElementById('newEmployeeCode').value;
-            const warehouse = document.getElementById('newWarehouse').value;
+            const role = document.getElementById('newRole').value;
+            const warehouseSelect = document.getElementById('newWarehouse');
+            
+            // Get selected warehouses (multiple selection)
+            const selectedWarehouses = Array.from(warehouseSelect.selectedOptions).map(option => option.value);
+            const warehouse = selectedWarehouses.length > 0 ? selectedWarehouses.join(',') : '';
             
             if (users[username]) {
                 alert('❌ Username already exists!');
                 return;
             }
             
+            // Validate warehouse is required for warehouse role
+            if (role === 'warehouse' && selectedWarehouses.length === 0) {
+                alert('❌ At least one warehouse is required for warehouse entry users!');
+                return;
+            }
+            
             users[username] = {
                 password: password,
-                role: 'warehouse',
+                role: role,
                 name: name,
                 employeeCode: employeeCode,
-                warehouse: warehouse
+                warehouse: warehouse // Store as comma-separated string or empty for "all"
             };
             
             localStorage.setItem('warehouseUsers', JSON.stringify(users));
@@ -2259,9 +2357,18 @@
             const approvalsList = document.getElementById('approvalsList');
             let pendingExpenses = expenses.filter(expense => expense.status === 'pending');
             
-            // Filter by warehouse if specified
-            if (currentApprovalFilter !== 'all') {
-                pendingExpenses = pendingExpenses.filter(expense => expense.warehouse === currentApprovalFilter);
+            // Filter by warehouse based on user role
+            if (users[currentUser].role === 'approver' && users[currentUser].warehouse && users[currentUser].warehouse !== '') {
+                // Approver with warehouse mapping: only see their assigned warehouses
+                const userWarehouses = users[currentUser].warehouse.split(',');
+                pendingExpenses = pendingExpenses.filter(expense => userWarehouses.includes(expense.warehouse));
+            } else if (currentApprovalFilter !== 'all') {
+                // Filter by warehouse selector
+                if (users[currentUser].role === 'approver' && !hasWarehouseAccess(users[currentUser], currentApprovalFilter)) {
+                    pendingExpenses = [];
+                } else {
+                    pendingExpenses = pendingExpenses.filter(expense => expense.warehouse === currentApprovalFilter);
+                }
             }
             
             if (pendingExpenses.length === 0) {
@@ -2414,15 +2521,27 @@
             
             // Filter by warehouse - Master users can see all or specific warehouse, warehouse users only see their own
             if (users[currentUser].role === 'warehouse') {
-                // Warehouse users can only see their own warehouse data and only approved expenses
+                // Warehouse users: only see their assigned warehouse approved expenses
                 filteredExpenses = filteredExpenses.filter(expense => 
-                    expense.warehouse === users[currentUser].warehouse && expense.status === 'approved'
+                    hasWarehouseAccess(users[currentUser], expense.warehouse) && expense.status === 'approved'
                 );
+            } else if (users[currentUser].role === 'approver') {
+                // Approver: filter by warehouse selector or warehouse mapping
+                if (currentWarehouse && currentWarehouse !== 'all') {
+                    if (hasWarehouseAccess(users[currentUser], currentWarehouse)) {
+                        filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
+                    } else {
+                        filteredExpenses = [];
+                    }
+                } else if (users[currentUser].warehouse && users[currentUser].warehouse !== '') {
+                    const userWarehouses = users[currentUser].warehouse.split(',');
+                    filteredExpenses = filteredExpenses.filter(expense => userWarehouses.includes(expense.warehouse));
+                }
             } else if (currentWarehouse && currentWarehouse !== 'all') {
                 // Master users can filter by specific warehouse
                 filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
             }
-            // If master user selects 'all' or no filter, show all expenses
+            // If master/approver selects 'all' or no filter, show all expenses (or assigned warehouses)
             
             // Apply date filters
             const fromDate = document.getElementById('downloadFromDate').value;
