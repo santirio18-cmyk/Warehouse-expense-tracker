@@ -2744,7 +2744,7 @@
                 await saveBudget(warehouse, month, category, amount);
             }
             
-            alert('✅ Budgets saved successfully!');
+            await customAlert('✅ Budgets saved successfully!');
             document.getElementById('budgetPreview').style.display = 'none';
             uploadedBudgetData = {};
             loadBudgetVisualization();
