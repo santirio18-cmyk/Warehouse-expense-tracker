@@ -2950,7 +2950,7 @@
         }
         
         // Budget Excel Upload Functions
-        function downloadBudgetTemplate() {
+        async function downloadBudgetTemplate() {
             const categories = ['Pooja', 'Tea', 'Petrol', 'Lunch', 'Travel', 'Freight', 'Maintenance', 'Utilities', 'Supplies', 'Other'];
             const csvContent = [
                 'Category,Budget',
@@ -3002,7 +3002,7 @@
             reader.readAsText(file);
         }
         
-        function showBudgetPreview() {
+        async function showBudgetPreview() {
             const previewDiv = document.getElementById('budgetPreview');
             const previewListDiv = document.getElementById('budgetPreviewList');
             
