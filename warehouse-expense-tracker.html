@@ -3103,7 +3103,6 @@
 
         async function approveExpense(id) {
             try {
-            if (confirm('Are you sure you want to approve this expense?')) {
                     // Convert id to string if needed
                     const expenseId = String(id);
                     const expense = expenses.find(e => String(e.id) === expenseId);
@@ -3112,6 +3111,16 @@
                         console.error('Expense not found. ID:', expenseId, 'Available IDs:', expenses.map(e => e.id));
                         return;
                     }
+                    
+                    // Create a more informative confirmation message
+                    const confirmMessage = `Confirm Approval\n\n` +
+                        `Amount: ₹${expense.amount.toFixed(2)}\n` +
+                        `Vendor: ${expense.vendorName || 'N/A'}\n` +
+                        `Category: ${expense.category}\n` +
+                        `Warehouse: ${expense.warehouse}\n\n` +
+                        `Do you want to approve this expense?`;
+                    
+            if (confirm(confirmMessage)) {
                     expense.status = 'approved';
                     expense.approvedBy = currentUser;
                     expense.approvedAt = new Date().toISOString();
