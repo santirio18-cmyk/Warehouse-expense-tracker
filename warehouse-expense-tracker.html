@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>myTVS SCM Expense Management System</title>
     <!-- Updated: Removed demo user info from login -->
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -933,7 +938,7 @@
                     <div class="form-group">
                         <label for="invoiceFile">Invoice Document (PDF/JPEG) *</label>
                         <input type="file" id="invoiceFile" accept=".pdf,.jpg,.jpeg,.png" required>
-                        <small style="color: #6c757d; font-size: 14px; display: block; margin-top: 5px;">Supported formats: PDF, JPG, JPEG, PNG (Max size: 10MB)</small>
+                        <small style="color: #6c757d; font-size: 14px; display: block; margin-top: 5px;">Supported formats: PDF, JPG, JPEG, PNG (Max size: 750KB for Firebase, 10MB for local storage)</small>
                     </div>
 
                     <div class="form-group">
@@ -1302,25 +1307,81 @@
     </div>
 
     <script>
-        // User Management
-        // Initialize users from localStorage or use default
-        function getUsers() {
+        // ============================================
+        // FIREBASE CONFIGURATION
+        // ============================================
+        // Firebase config for myTVS Expense Tracker
+        const firebaseConfig = {
+            apiKey: "AIzaSyABOT-m3kraMuaTDjGDLmBcESbxL3XpRlA",
+            authDomain: "mytvs-expense-tracker.firebaseapp.com",
+            projectId: "mytvs-expense-tracker",
+            storageBucket: "mytvs-expense-tracker.firebasestorage.app",
+            messagingSenderId: "653659771144",
+            appId: "1:653659771144:web:7ebd5e188e94e19666dcbd",
+            measurementId: "G-JQ5MQ08SMH"
+        };
+        
+        // Initialize Firebase (only if config is provided)
+        let db = null;
+        let useFirebase = false;
+        
+        if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
+            try {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                useFirebase = true;
+                console.log('✅ Firebase initialized successfully');
+            } catch (error) {
+                console.error('❌ Firebase initialization error:', error);
+                useFirebase = false;
+            }
+        } else {
+            console.log('ℹ️ Firebase not configured - using localStorage');
+        }
+        
+        // ============================================
+        // DATA SERVICE FUNCTIONS (Firebase or localStorage)
+        // ============================================
+        
+        // Users Service
+        async function getUsers() {
+            if (useFirebase && db) {
+                try {
+                    const snapshot = await db.collection('users').get();
+                    const users = {};
+                    snapshot.forEach(doc => {
+                        users[doc.id] = doc.data();
+                    });
+                    
+                    // Ensure admin user exists
+                    if (!users['admin']) {
+                        await saveUser('admin', { password: 'admin123', role: 'master', name: 'Master Admin' });
+                        users['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
+                    }
+                    
+                    return users;
+                } catch (error) {
+                    console.error('Error loading users from Firebase:', error);
+                    return getUsersLocalStorage();
+                }
+            } else {
+                return getUsersLocalStorage();
+            }
+        }
+        
+        function getUsersLocalStorage() {
             const storedUsers = localStorage.getItem('warehouseUsers');
             if (storedUsers) {
                 const parsedUsers = JSON.parse(storedUsers);
-                // Clean up: Remove all old warehouse users (warehouse_1 to warehouse_28) and keep only admin
                 const cleanedUsers = {};
                 Object.keys(parsedUsers).forEach(username => {
-                    // Keep only admin user, remove all warehouse_* users
                     if (username === 'admin') {
                         cleanedUsers[username] = parsedUsers[username];
                     } else if (!username.startsWith('warehouse_')) {
-                        // Keep other custom users (approvers, etc.) but not default warehouse users
                         cleanedUsers[username] = parsedUsers[username];
                     }
                 });
                 
-                // If admin doesn't exist, add it
                 if (!cleanedUsers['admin']) {
                     cleanedUsers['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
                 }
@@ -1328,7 +1389,6 @@
                 localStorage.setItem('warehouseUsers', JSON.stringify(cleanedUsers));
                 return cleanedUsers;
             } else {
-                // Initial users - Only Master Admin
                 const defaultUsers = {
                     'admin': { password: 'admin123', role: 'master', name: 'Master Admin' }
                 };
@@ -1337,14 +1397,386 @@
             }
         }
         
-        let users = getUsers();
-
+        async function saveUser(username, userData) {
+            if (useFirebase && db) {
+                try {
+                    await db.collection('users').doc(username).set(userData);
+                    return true;
+                } catch (error) {
+                    console.error('Error saving user to Firebase:', error);
+                    saveUserLocalStorage(username, userData);
+                    return false;
+                }
+            } else {
+                saveUserLocalStorage(username, userData);
+                return true;
+            }
+        }
+        
+        function saveUserLocalStorage(username, userData) {
+            const users = getUsersLocalStorage();
+            users[username] = userData;
+            localStorage.setItem('warehouseUsers', JSON.stringify(users));
+        }
+        
+        async function deleteUserFirebase(username) {
+            if (useFirebase && db) {
+                try {
+                    await db.collection('users').doc(username).delete();
+                    return true;
+                } catch (error) {
+                    console.error('Error deleting user from Firebase:', error);
+                    return false;
+                }
+            }
+            return false;
+        }
+        
+        // Expenses Service
+        async function getExpenses() {
+            if (useFirebase && db) {
+                try {
+                    const snapshot = await db.collection('expenses').orderBy('date', 'desc').get();
+                    return snapshot.docs.map(doc => {
+                        const data = doc.data();
+                        // Reconstruct invoiceFile from flattened fields
+                        if (data.invoiceFileName || data.invoiceFileData) {
+                            data.invoiceFile = {
+                                filename: data.invoiceFileName || null,
+                                type: data.invoiceFileType || null,
+                                size: data.invoiceFileSize || null,
+                                data: data.invoiceFileData || null,
+                                tooLarge: data.invoiceFileTooLarge || false
+                            };
+                            // Remove flattened fields
+                            delete data.invoiceFileName;
+                            delete data.invoiceFileType;
+                            delete data.invoiceFileSize;
+                            delete data.invoiceFileData;
+                            delete data.invoiceFileTooLarge;
+                        }
+                        return { id: doc.id, ...data };
+                    });
+                } catch (error) {
+                    console.error('Error loading expenses from Firebase:', error);
+                    return getExpensesLocalStorage();
+                }
+            } else {
+                return getExpensesLocalStorage();
+            }
+        }
+        
+        function getExpensesLocalStorage() {
+            return JSON.parse(localStorage.getItem('warehouseExpenses')) || [];
+        }
+        
+        async function saveExpense(expense) {
+            if (useFirebase && db) {
+                try {
+                    // Clean the expense object - Firebase doesn't like undefined values
+                    // Also flatten invoiceFile for Firebase compatibility
+                    const cleanExpense = {};
+                    Object.keys(expense).forEach(key => {
+                        if (expense[key] !== undefined && expense[key] !== null) {
+                            if (key === 'invoiceFile' && expense[key] && typeof expense[key] === 'object') {
+                                // Flatten invoiceFile object for Firebase
+                                cleanExpense['invoiceFileName'] = expense[key].filename || null;
+                                cleanExpense['invoiceFileType'] = expense[key].type || null;
+                                cleanExpense['invoiceFileSize'] = expense[key].size || null;
+                                // Check base64 size before storing (Firestore 1MB limit = 1,048,487 bytes)
+                                const base64Data = expense[key].data || null;
+                                if (base64Data && base64Data.length > 1048487) {
+                                    console.warn('Base64 data too large for Firestore, storing without file data');
+                                    cleanExpense['invoiceFileData'] = null;
+                                    cleanExpense['invoiceFileTooLarge'] = true;
+                                } else {
+                                    cleanExpense['invoiceFileData'] = base64Data;
+                                }
+                            } else {
+                                cleanExpense[key] = expense[key];
+                            }
+                        }
+                    });
+                    
+                    if (expense.id && typeof expense.id === 'string' && expense.id.length > 0) {
+                        await db.collection('expenses').doc(expense.id).set(cleanExpense);
+                    } else {
+                        const docRef = await db.collection('expenses').add(cleanExpense);
+                        expense.id = docRef.id;
+                        cleanExpense.id = docRef.id;
+                    }
+                    // Also save to localStorage as backup (without large file data)
+                    saveExpenseLocalStorage(expense, true); // Pass flag to skip large files
+                    return true;
+                } catch (error) {
+                    console.error('Error saving expense to Firebase:', error);
+                    console.error('Error details:', error.code, error.message);
+                    // Fallback to localStorage (without large file data)
+                    try {
+                        saveExpenseLocalStorage(expense, true);
+                    } catch (localError) {
+                        console.error('Error saving to localStorage:', localError);
+                        // If localStorage fails, at least the expense is saved in Firebase
+                    }
+                    throw error; // Re-throw to show error message
+                }
+            } else {
+                saveExpenseLocalStorage(expense, true); // Skip large files in localStorage
+                return true;
+            }
+        }
+        
+        function saveExpenseLocalStorage(expense, skipLargeFiles = false) {
+            const expenses = getExpensesLocalStorage();
+            
+            // Create a copy of expense for localStorage
+            const expenseForStorage = { ...expense };
+            
+            // If skipLargeFiles is true, remove base64 data to prevent quota exceeded
+            if (skipLargeFiles && expenseForStorage.invoiceFile && expenseForStorage.invoiceFile.data) {
+                expenseForStorage.invoiceFile = {
+                    filename: expenseForStorage.invoiceFile.filename,
+                    type: expenseForStorage.invoiceFile.type,
+                    size: expenseForStorage.invoiceFile.size,
+                    data: null // Don't store base64 in localStorage
+                };
+            }
+            
+            if (expense.id) {
+                const index = expenses.findIndex(e => e.id === expense.id);
+                if (index !== -1) {
+                    expenses[index] = expenseForStorage;
+                } else {
+                    expenses.push(expenseForStorage);
+                }
+            } else {
+                expenseForStorage.id = Date.now().toString();
+                expenses.push(expenseForStorage);
+            }
+            
+            try {
+                localStorage.setItem('warehouseExpenses', JSON.stringify(expenses));
+            } catch (error) {
+                if (error.name === 'QuotaExceededError') {
+                    console.warn('localStorage quota exceeded. Storing expenses without file data.');
+                    // Remove all file data from all expenses and try again
+                    const expensesWithoutFiles = expenses.map(e => {
+                        const exp = { ...e };
+                        if (exp.invoiceFile && exp.invoiceFile.data) {
+                            exp.invoiceFile = {
+                                filename: exp.invoiceFile.filename,
+                                type: exp.invoiceFile.type,
+                                size: exp.invoiceFile.size,
+                                data: null
+                            };
+                        }
+                        return exp;
+                    });
+                    localStorage.setItem('warehouseExpenses', JSON.stringify(expensesWithoutFiles));
+                } else {
+                    throw error;
+                }
+            }
+        }
+        
+        async function saveAllExpenses(expensesArray) {
+            if (useFirebase && db) {
+                try {
+                    const batch = db.batch();
+                    expensesArray.forEach(expense => {
+                        // Flatten invoiceFile for Firebase
+                        const cleanExpense = {};
+                        Object.keys(expense).forEach(key => {
+                            if (expense[key] !== undefined && expense[key] !== null) {
+                                if (key === 'invoiceFile' && expense[key] && typeof expense[key] === 'object') {
+                                    cleanExpense['invoiceFileName'] = expense[key].filename || null;
+                                    cleanExpense['invoiceFileType'] = expense[key].type || null;
+                                    cleanExpense['invoiceFileSize'] = expense[key].size || null;
+                                    cleanExpense['invoiceFileData'] = expense[key].data || null;
+                                } else {
+                                    cleanExpense[key] = expense[key];
+                                }
+                            }
+                        });
+                        const docRef = db.collection('expenses').doc(expense.id);
+                        batch.set(docRef, cleanExpense);
+                    });
+                    await batch.commit();
+                    return true;
+                } catch (error) {
+                    console.error('Error saving expenses to Firebase:', error);
+                    // Try to save to localStorage without large files
+                    try {
+                        const expensesWithoutFiles = expensesArray.map(e => {
+                            const exp = { ...e };
+                            if (exp.invoiceFile && exp.invoiceFile.data) {
+                                exp.invoiceFile = {
+                                    filename: exp.invoiceFile.filename,
+                                    type: exp.invoiceFile.type,
+                                    size: exp.invoiceFile.size,
+                                    data: null
+                                };
+                            }
+                            return exp;
+                        });
+                        localStorage.setItem('warehouseExpenses', JSON.stringify(expensesWithoutFiles));
+                    } catch (localError) {
+                        console.error('Error saving to localStorage:', localError);
+                    }
+                    return false;
+                }
+            } else {
+                // Save to localStorage without large files
+                const expensesWithoutFiles = expensesArray.map(e => {
+                    const exp = { ...e };
+                    if (exp.invoiceFile && exp.invoiceFile.data) {
+                        exp.invoiceFile = {
+                            filename: exp.invoiceFile.filename,
+                            type: exp.invoiceFile.type,
+                            size: exp.invoiceFile.size,
+                            data: null
+                        };
+                    }
+                    return exp;
+                });
+                localStorage.setItem('warehouseExpenses', JSON.stringify(expensesWithoutFiles));
+                return true;
+            }
+        }
+        
+        async function deleteExpenseFirebase(expenseId) {
+            if (useFirebase && db) {
+                try {
+                    await db.collection('expenses').doc(expenseId).delete();
+                    return true;
+                } catch (error) {
+                    console.error('Error deleting expense from Firebase:', error);
+                    return false;
+                }
+            }
+            return false;
+        }
+        
+        // Budgets Service
+        async function getBudgets() {
+            if (useFirebase && db) {
+                try {
+                    const snapshot = await db.collection('budgets').get();
+                    const budgets = {};
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        const key = `${data.warehouse}_${data.month}`;
+                        if (!budgets[key]) {
+                            budgets[key] = {};
+                        }
+                        budgets[key][data.category] = data.amount;
+                    });
+                    return budgets;
+                } catch (error) {
+                    console.error('Error loading budgets from Firebase:', error);
+                    return getBudgetsLocalStorage();
+                }
+            } else {
+                return getBudgetsLocalStorage();
+            }
+        }
+        
+        function getBudgetsLocalStorage() {
+            return JSON.parse(localStorage.getItem('warehouseBudgets')) || {};
+        }
+        
+        async function saveBudget(warehouse, month, category, amount) {
+            if (useFirebase && db) {
+                try {
+                    const budgetKey = `${warehouse}_${month}_${category}`;
+                    await db.collection('budgets').doc(budgetKey).set({
+                        warehouse: warehouse,
+                        month: month,
+                        category: category,
+                        amount: amount
+                    });
+                    return true;
+                } catch (error) {
+                    console.error('Error saving budget to Firebase:', error);
+                    saveBudgetLocalStorage(warehouse, month, category, amount);
+                    return false;
+                }
+            } else {
+                saveBudgetLocalStorage(warehouse, month, category, amount);
+                return true;
+            }
+        }
+        
+        function saveBudgetLocalStorage(warehouse, month, category, amount) {
+            const budgets = getBudgetsLocalStorage();
+            const key = `${warehouse}_${month}`;
+            if (!budgets[key]) {
+                budgets[key] = {};
+            }
+            budgets[key][category] = amount;
+            localStorage.setItem('warehouseBudgets', JSON.stringify(budgets));
+        }
+        
+        async function saveAllBudgets(budgetsObj) {
+            if (useFirebase && db) {
+                try {
+                    const batch = db.batch();
+                    Object.keys(budgetsObj).forEach(key => {
+                        const [warehouse, month] = key.split('_');
+                        Object.keys(budgetsObj[key]).forEach(category => {
+                            const budgetKey = `${warehouse}_${month}_${category}`;
+                            const docRef = db.collection('budgets').doc(budgetKey);
+                            batch.set(docRef, {
+                                warehouse: warehouse,
+                                month: month,
+                                category: category,
+                                amount: budgetsObj[key][category]
+                            });
+                        });
+                    });
+                    await batch.commit();
+                    return true;
+                } catch (error) {
+                    console.error('Error saving budgets to Firebase:', error);
+                    localStorage.setItem('warehouseBudgets', JSON.stringify(budgetsObj));
+                    return false;
+                }
+            } else {
+                localStorage.setItem('warehouseBudgets', JSON.stringify(budgetsObj));
+                return true;
+            }
+        }
+        
+        // ============================================
+        // User Management
+        // ============================================
+        
+        // Initialize data (will be loaded asynchronously)
+        let users = {};
         let currentUser = null;
         let currentWarehouse = null;
-        let expenses = JSON.parse(localStorage.getItem('warehouseExpenses')) || [];
-        let budgets = JSON.parse(localStorage.getItem('warehouseBudgets')) || {};
+        let expenses = [];
+        let budgets = {};
         let currentFilter = 'all';
         let currentApprovalFilter = 'all';
+        
+        // Load initial data
+        (async function initializeData() {
+            users = await getUsers();
+            expenses = await getExpenses();
+            budgets = await getBudgets();
+            
+            // Set up real-time listener for expenses (Firebase only)
+            if (useFirebase && db) {
+                db.collection('expenses').orderBy('date', 'desc').onSnapshot(snapshot => {
+                    expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    if (currentUser) {
+                        displayExpenses();
+                        updateSummary();
+                    }
+                });
+            }
+        })();
         
         // Helper function to check if user has access to a warehouse
         function hasWarehouseAccess(user, warehouse) {
@@ -1392,11 +1824,16 @@
         }
 
         // Login functionality
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
+            
+            // Ensure users are loaded
+            if (Object.keys(users).length === 0) {
+                users = await getUsers();
+            }
             
             if (users[username] && users[username].password === password) {
                 currentUser = username;
@@ -1416,7 +1853,7 @@
                     document.getElementById('usersTab').style.display = 'block';
                     document.getElementById('approvalsTab').style.display = 'block';
                     // Reload users to ensure cleanup is applied
-                    users = getUsers();
+                    users = await getUsers();
                     loadUsers();
                 } else if (users[username].role === 'approver') {
                     // Approver: All access except user creation
@@ -1439,7 +1876,9 @@
                     document.getElementById('approvalsTab').style.display = 'none';
                 }
                 
-                // Load data
+                // Load data (ensure expenses and budgets are loaded)
+                expenses = await getExpenses();
+                budgets = await getBudgets();
                 displayExpenses();
                 updateSummary();
             } else {
@@ -1484,7 +1923,9 @@
             if (tabName === 'summary') {
                 updateSummary();
             }
-            if (tabName === 'users') loadUsers();
+            if (tabName === 'users') {
+                loadUsers();
+            }
             if (tabName === 'approvals') displayApprovals();
             if (tabName === 'budget') {
                 loadBudgetVisualization();
@@ -1531,11 +1972,24 @@
                 return;
             }
             
-            // File size validation (10MB = 10 * 1024 * 1024 bytes)
-            const maxFileSize = 10 * 1024 * 1024;
-            if (invoiceFile.size > maxFileSize) {
-                showToast('error', 'File Size Error', 'Invoice file size must be less than 10MB.');
-                return;
+            // File size validation for Firebase Firestore (1MB limit per field)
+            // Base64 encoding increases size by ~33%, so limit original file to ~750KB
+            const maxFileSizeForFirestore = 750 * 1024; // 750KB
+            const maxFileSizeGeneral = 10 * 1024 * 1024; // 10MB for non-Firebase
+            
+            if (useFirebase && db) {
+                // For Firebase, limit to 750KB to stay within 1MB base64 limit
+                if (invoiceFile.size > maxFileSizeForFirestore) {
+                    const fileSizeMB = (invoiceFile.size / (1024 * 1024)).toFixed(2);
+                    showToast('error', 'File Size Error', `File size (${fileSizeMB}MB) is too large for Firebase. Maximum size is 750KB (~1MB when encoded). Please compress the file or use a smaller file.`);
+                    return;
+                }
+            } else {
+                // For localStorage, limit to 10MB
+                if (invoiceFile.size > maxFileSizeGeneral) {
+                    showToast('error', 'File Size Error', 'Invoice file size must be less than 10MB.');
+                    return;
+                }
             }
             
             // Amount validation
@@ -1592,14 +2046,6 @@
                     warehouse = currentWarehouse || 'warehouse_1';
                 }
                 
-                // Vendor name validation - prevent suspicious patterns
-                const vendorNameLower = vendorName.toLowerCase();
-                const suspiciousPatterns = ['test', 'temp', 'dummy', 'sample', 'xxxxx', 'aaaaa', 'zzzzz'];
-                if (suspiciousPatterns.some(pattern => vendorNameLower.includes(pattern))) {
-                    showToast('error', 'Invalid Vendor Name', 'Please enter a valid vendor/supplier name.');
-                    return;
-                }
-                
                 // Check for duplicate invoice number in the same warehouse
                 if (invoiceNumber && invoiceNumber.trim() !== '') {
                     const normalizedInvoiceNumber = invoiceNumber.trim();
@@ -1646,7 +2092,7 @@
                 }
                 
                 const expense = {
-                    id: Date.now(),
+                    id: String(Date.now()), // Convert to string for Firebase compatibility
                     date: document.getElementById('expenseDate').value,
                     time: document.getElementById('expenseTime').value,
                     category: document.getElementById('expenseCategory').value,
@@ -1655,7 +2101,7 @@
                     paymentMode: paymentMode,
                     invoiceNumber: invoiceNumber || null,
                     invoiceFile: invoiceData,
-                    description: document.getElementById('expenseDescription').value,
+                    description: document.getElementById('expenseDescription').value || '',
                     warehouse: warehouse,
                     createdBy: currentUser,
                     createdAt: new Date().toISOString(),
@@ -1665,7 +2111,7 @@
                 };
                 
                 expenses.push(expense);
-                localStorage.setItem('warehouseExpenses', JSON.stringify(expenses));
+                await saveExpense(expense);
                 
                 document.getElementById('expenseForm').reset();
                 document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
@@ -1678,7 +2124,10 @@
             
             processSubmission().catch(error => {
                 console.error('Error in processSubmission:', error);
-                showToast('error', 'Submission Error', 'An error occurred while submitting the expense.');
+                const errorMessage = error.message || 'An error occurred while submitting the expense.';
+                showToast('error', 'Submission Error', errorMessage);
+                // Also try to save to localStorage as fallback
+                console.log('Attempting to save to localStorage as fallback...');
             });
         });
 
@@ -1795,27 +2244,114 @@
             `).join('');
         }
 
+        // View invoice file in new tab
+        function viewInvoiceFile(id) {
+            try {
+                // Convert id to string if needed
+                const expenseId = String(id);
+                const expense = expenses.find(e => String(e.id) === expenseId);
+                if (!expense) {
+                    showToast('error', 'Error', 'Expense not found');
+                    console.error('Expense not found. ID:', expenseId);
+                    return;
+                }
+                
+                if (!expense.invoiceFile) {
+                    showToast('error', 'Error', 'Invoice file not found for this expense');
+                    return;
+                }
+            
+                if (!expense.invoiceFile.data) {
+                    showToast('error', 'Error', 'Invoice file data is not available. The file may be too large or was not uploaded.');
+                    console.log('Invoice file info:', {
+                        filename: expense.invoiceFile.filename,
+                        type: expense.invoiceFile.type,
+                        size: expense.invoiceFile.size,
+                        hasData: !!expense.invoiceFile.data
+                    });
+                    return;
+                }
+            
+            // Open invoice in new tab/window
+            const newWindow = window.open();
+            if (newWindow) {
+                newWindow.document.write(`
+                    <html>
+                        <head>
+                            <title>${expense.invoiceFile.filename}</title>
+                            <style>
+                                body { margin: 0; padding: 20px; background: #f5f5f5; }
+                                .container { max-width: 100%; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                                img { max-width: 100%; height: auto; }
+                                iframe { width: 100%; height: 80vh; border: none; }
+                                .header { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; }
+                                .header h2 { margin: 0; color: #333; }
+                                .header p { margin: 5px 0 0 0; color: #666; font-size: 14px; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="container">
+                                <div class="header">
+                                    <h2>📄 ${expense.invoiceFile.filename}</h2>
+                                    <p>Invoice #${expense.invoiceNumber || 'N/A'} | Vendor: ${expense.vendorName || 'N/A'} | Amount: ₹${expense.amount.toFixed(2)}</p>
+                                </div>
+                                ${expense.invoiceFile.type === 'application/pdf' 
+                                    ? `<iframe src="${expense.invoiceFile.data}"></iframe>`
+                                    : `<img src="${expense.invoiceFile.data}" alt="${expense.invoiceFile.filename}">`
+                                }
+                            </div>
+                        </body>
+                    </html>
+                `);
+            } else {
+                showToast('error', 'Error', 'Please allow pop-ups to view the invoice');
+            }
+            } catch (error) {
+                console.error('Error viewing invoice:', error);
+                showToast('error', 'Error', 'Failed to view invoice: ' + error.message);
+            }
+        }
+        
         // Download invoice file
         function downloadInvoiceFile(id) {
-            const expense = expenses.find(e => e.id === id);
-            if (!expense || !expense.invoiceFile) {
-                showToast('error', 'Error', 'Invoice file not found');
-                return;
-            }
+            try {
+                // Convert id to string if needed
+                const expenseId = String(id);
+                const expense = expenses.find(e => String(e.id) === expenseId);
+                if (!expense) {
+                    showToast('error', 'Error', 'Expense not found');
+                    console.error('Expense not found. ID:', expenseId);
+                    return;
+                }
+                
+                if (!expense.invoiceFile) {
+                    showToast('error', 'Error', 'Invoice file not found for this expense');
+                    return;
+                }
             
-            const link = document.createElement('a');
-            link.href = expense.invoiceFile.data;
-            link.download = expense.invoiceFile.filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+                if (!expense.invoiceFile.data) {
+                    showToast('error', 'Error', 'Invoice file data is not available. The file may be too large or was not uploaded.');
+                    return;
+                }
+            
+                const link = document.createElement('a');
+                link.href = expense.invoiceFile.data;
+                link.download = expense.invoiceFile.filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (error) {
+                console.error('Error downloading invoice:', error);
+                showToast('error', 'Error', 'Failed to download invoice: ' + error.message);
+            }
         }
 
         // Delete expense
-        function deleteExpense(id) {
+        async function deleteExpense(id) {
             if (confirm('Are you sure you want to delete this expense?')) {
                 expenses = expenses.filter(expense => expense.id !== id);
-                localStorage.setItem('warehouseExpenses', JSON.stringify(expenses));
+                await deleteExpenseFirebase(id);
+                await saveAllExpenses(expenses);
                 displayExpenses();
                 updateSummary();
             }
@@ -1974,13 +2510,17 @@
             document.getElementById('budgetPreview').style.display = 'none';
         }
         
-        function saveUploadedBudgets() {
+        async function saveUploadedBudgets() {
             const warehouse = document.getElementById('budgetWarehouse').value;
             const month = document.getElementById('budgetMonth').value;
             const budgetKey = `${warehouse}_${month}`;
             
             budgets[budgetKey] = uploadedBudgetData;
-            localStorage.setItem('warehouseBudgets', JSON.stringify(budgets));
+            
+            // Save each budget entry to Firebase or localStorage
+            for (const [category, amount] of Object.entries(uploadedBudgetData)) {
+                await saveBudget(warehouse, month, category, amount);
+            }
             
             alert('✅ Budgets saved successfully!');
             document.getElementById('budgetPreview').style.display = 'none';
@@ -2301,7 +2841,9 @@
         }
         
         // Load users (Master Admin only)
-        function loadUsers() {
+        async function loadUsers() {
+            // Refresh users from database
+            users = await getUsers();
             const userList = document.getElementById('userList');
             userList.innerHTML = Object.entries(users).map(([username, user]) => `
                 <div class="user-card">
@@ -2316,7 +2858,7 @@
         }
         
         // Add new user form handler
-        document.getElementById('addUserForm').addEventListener('submit', function(e) {
+        document.getElementById('addUserForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const username = document.getElementById('newUsername').value;
@@ -2349,7 +2891,7 @@
                 warehouse: warehouse // Store as comma-separated string or empty for "all"
             };
             
-            localStorage.setItem('warehouseUsers', JSON.stringify(users));
+            await saveUser(username, users[username]);
             
             alert(`✅ User "${name}" created successfully!`);
             
@@ -2357,10 +2899,11 @@
             this.reset();
             
             // Reload user list
+            users = await getUsers();
             loadUsers();
         });
         
-        function deleteUser(username) {
+        async function deleteUser(username) {
             if (username === 'admin') {
                 alert('❌ Cannot delete master admin user!');
                 return;
@@ -2368,8 +2911,11 @@
             
             if (confirm(`Are you sure you want to delete user "${users[username].name}"?`)) {
                 delete users[username];
+                await deleteUserFirebase(username);
+                // Also save to localStorage as backup
                 localStorage.setItem('warehouseUsers', JSON.stringify(users));
                 alert('✅ User deleted successfully!');
+                users = await getUsers();
                 loadUsers();
             }
         }
@@ -2491,16 +3037,25 @@
                     </div>
                     ${expense.description ? `<div class="expense-description">${expense.description}</div>` : ''}
                     ${expense.invoiceFile ? `
-                        <div style="margin-top: 10px;">
-                            <button onclick="downloadInvoiceFile(${expense.id})" style="background: #17a2b8; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
-                                📎 Download Invoice
-                            </button>
+                        <div style="margin-top: 10px; display: flex; gap: 10px;">
+                            ${expense.invoiceFile.data ? `
+                                <button onclick="viewInvoiceFile('${expense.id}')" style="background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                                    👁️ View Invoice
+                                </button>
+                                <button onclick="downloadInvoiceFile('${expense.id}')" style="background: #17a2b8; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                                    📎 Download Invoice
+                                </button>
+                            ` : `
+                                <div style="background: #fff3cd; padding: 8px 12px; border-radius: 6px; border-left: 3px solid #ffc107; color: #856404; font-size: 12px;">
+                                    ⚠️ Invoice file not available (file may be too large)
+                                </div>
+                            `}
                         </div>
                     ` : ''}
                     ${budgetDisplay}
                     <div class="approval-actions">
-                        <button class="approval-btn approve-btn" onclick="approveExpense(${expense.id})">✅ Approve</button>
-                        <button class="approval-btn reject-btn" onclick="rejectExpense(${expense.id})">❌ Reject</button>
+                        <button class="approval-btn approve-btn" onclick="approveExpense('${expense.id}')">✅ Approve</button>
+                        <button class="approval-btn reject-btn" onclick="rejectExpense('${expense.id}')">❌ Reject</button>
                     </div>
                 </div>
             `;
@@ -2514,33 +3069,53 @@
             displayApprovals();
         }
 
-        function approveExpense(id) {
-            if (confirm('Are you sure you want to approve this expense?')) {
-                const expense = expenses.find(e => e.id === id);
-                if (expense) {
+        async function approveExpense(id) {
+            try {
+                if (confirm('Are you sure you want to approve this expense?')) {
+                    // Convert id to string if needed
+                    const expenseId = String(id);
+                    const expense = expenses.find(e => String(e.id) === expenseId);
+                    if (!expense) {
+                        showToast('error', 'Error', 'Expense not found');
+                        console.error('Expense not found. ID:', expenseId, 'Available IDs:', expenses.map(e => e.id));
+                        return;
+                    }
                     expense.status = 'approved';
                     expense.approvedBy = currentUser;
                     expense.approvedAt = new Date().toISOString();
-                    localStorage.setItem('warehouseExpenses', JSON.stringify(expenses));
+                    await saveExpense(expense);
                     displayApprovals();
                     displayExpenses();
                     updateSummary();
-                    alert('✅ Expense approved successfully!');
+                    showToast('success', 'Success', 'Expense approved successfully!');
                 }
+            } catch (error) {
+                console.error('Error approving expense:', error);
+                showToast('error', 'Error', 'Failed to approve expense: ' + error.message);
             }
         }
 
-        function rejectExpense(id) {
-            if (confirm('Are you sure you want to reject this expense?')) {
-                const expense = expenses.find(e => e.id === id);
-                if (expense) {
+        async function rejectExpense(id) {
+            try {
+                if (confirm('Are you sure you want to reject this expense?')) {
+                    // Convert id to string if needed
+                    const expenseId = String(id);
+                    const expense = expenses.find(e => String(e.id) === expenseId);
+                    if (!expense) {
+                        showToast('error', 'Error', 'Expense not found');
+                        console.error('Expense not found. ID:', expenseId, 'Available IDs:', expenses.map(e => e.id));
+                        return;
+                    }
                     expense.status = 'rejected';
                     expense.approvedBy = currentUser;
                     expense.approvedAt = new Date().toISOString();
-                    localStorage.setItem('warehouseExpenses', JSON.stringify(expenses));
+                    await saveExpense(expense);
                     displayApprovals();
-                    alert('❌ Expense rejected successfully!');
+                    showToast('success', 'Success', 'Expense rejected successfully!');
                 }
+            } catch (error) {
+                console.error('Error rejecting expense:', error);
+                showToast('error', 'Error', 'Failed to reject expense: ' + error.message);
             }
         }
 
