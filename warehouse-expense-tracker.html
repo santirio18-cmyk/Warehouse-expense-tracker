@@ -2143,6 +2143,11 @@
                 expenses.push(expense);
                 await saveExpense(expense);
                 
+                // Reload expenses from Firebase to ensure invoice file is properly structured
+                if (useFirebase && db) {
+                    expenses = await getExpenses();
+                }
+                
                 document.getElementById('expenseForm').reset();
                 document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
                 document.getElementById('expenseTime').value = new Date().toTimeString().slice(0, 5);
@@ -2150,6 +2155,10 @@
                 showToast('info', 'Expense Submitted', 'Awaiting approval from Master Admin.');
                 displayExpenses();
                 updateSummary();
+                // Refresh approvals if on approvals tab
+                if (document.getElementById('approvals').classList.contains('active')) {
+                    displayApprovals();
+                }
             };
             
             processSubmission().catch(error => {
