@@ -2062,6 +2062,7 @@
                 }
                 
                 // Check for multiple expenses from same vendor on same day (possible fraud detection)
+                const vendorNameLower = vendorName.toLowerCase();
                 const sameDaySameVendor = expenses.filter(expense => 
                     expense.warehouse === warehouse && 
                     expense.vendorName && 
