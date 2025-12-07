@@ -1769,10 +1769,33 @@
             // Set up real-time listener for expenses (Firebase only)
             if (useFirebase && db) {
                 db.collection('expenses').orderBy('date', 'desc').onSnapshot(snapshot => {
-                    expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    expenses = snapshot.docs.map(doc => {
+                        const data = doc.data();
+                        // Reconstruct invoiceFile from flattened fields
+                        if (data.invoiceFileName || data.invoiceFileData) {
+                            data.invoiceFile = {
+                                filename: data.invoiceFileName || null,
+                                type: data.invoiceFileType || null,
+                                size: data.invoiceFileSize || null,
+                                data: data.invoiceFileData || null,
+                                tooLarge: data.invoiceFileTooLarge || false
+                            };
+                            // Remove flattened fields
+                            delete data.invoiceFileName;
+                            delete data.invoiceFileType;
+                            delete data.invoiceFileSize;
+                            delete data.invoiceFileData;
+                            delete data.invoiceFileTooLarge;
+                        }
+                        return { id: doc.id, ...data };
+                    });
                     if (currentUser) {
                         displayExpenses();
                         updateSummary();
+                        // Refresh approvals if on approvals tab
+                        if (document.getElementById('approvals').classList.contains('active')) {
+                            displayApprovals();
+                        }
                     }
                 });
             }
@@ -1864,7 +1887,7 @@
                     if (!users[username].warehouse || users[username].warehouse === '' || users[username].warehouse.includes(',')) {
                         document.getElementById('warehouseSelect').value = 'all';
                         currentWarehouse = 'all';
-                    } else {
+                } else {
                         // Single warehouse assignment
                         document.getElementById('warehouseSelect').value = users[username].warehouse;
                         currentWarehouse = users[username].warehouse;
@@ -1926,7 +1949,13 @@
             if (tabName === 'users') {
                 loadUsers();
             }
-            if (tabName === 'approvals') displayApprovals();
+            if (tabName === 'approvals') {
+                // Reload expenses to ensure latest data (especially for Firebase)
+                (async () => {
+                    expenses = await getExpenses();
+                    displayApprovals();
+                })();
+            }
             if (tabName === 'budget') {
                 loadBudgetVisualization();
                 loadBudgetManagement();
@@ -1987,8 +2016,8 @@
             } else {
                 // For localStorage, limit to 10MB
                 if (invoiceFile.size > maxFileSizeGeneral) {
-                    showToast('error', 'File Size Error', 'Invoice file size must be less than 10MB.');
-                    return;
+                showToast('error', 'File Size Error', 'Invoice file size must be less than 10MB.');
+                return;
                 }
             }
             
@@ -2312,7 +2341,7 @@
                 showToast('error', 'Error', 'Failed to view invoice: ' + error.message);
             }
         }
-        
+
         // Download invoice file
         function downloadInvoiceFile(id) {
             try {
@@ -2332,15 +2361,15 @@
             
                 if (!expense.invoiceFile.data) {
                     showToast('error', 'Error', 'Invoice file data is not available. The file may be too large or was not uploaded.');
-                    return;
-                }
+                return;
+            }
             
-                const link = document.createElement('a');
-                link.href = expense.invoiceFile.data;
-                link.download = expense.invoiceFile.filename;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+            const link = document.createElement('a');
+            link.href = expense.invoiceFile.data;
+            link.download = expense.invoiceFile.filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
             } catch (error) {
                 console.error('Error downloading invoice:', error);
                 showToast('error', 'Error', 'Failed to download invoice: ' + error.message);
@@ -2840,7 +2869,7 @@
                 warehouseSelect.required = false;
             }
         }
-        
+
         // Load users (Master Admin only)
         async function loadUsers() {
             // Refresh users from database
@@ -2961,7 +2990,7 @@
                 if (users[currentUser].role === 'approver' && !hasWarehouseAccess(users[currentUser], currentApprovalFilter)) {
                     pendingExpenses = [];
                 } else {
-                    pendingExpenses = pendingExpenses.filter(expense => expense.warehouse === currentApprovalFilter);
+                pendingExpenses = pendingExpenses.filter(expense => expense.warehouse === currentApprovalFilter);
                 }
             }
             
@@ -3044,8 +3073,8 @@
                                     👁️ View Invoice
                                 </button>
                                 <button onclick="downloadInvoiceFile('${expense.id}')" style="background: #17a2b8; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
-                                    📎 Download Invoice
-                                </button>
+                                📎 Download Invoice
+                            </button>
                             ` : `
                                 <div style="background: #fff3cd; padding: 8px 12px; border-radius: 6px; border-left: 3px solid #ffc107; color: #856404; font-size: 12px;">
                                     ⚠️ Invoice file not available (file may be too large)
@@ -3072,7 +3101,7 @@
 
         async function approveExpense(id) {
             try {
-                if (confirm('Are you sure you want to approve this expense?')) {
+            if (confirm('Are you sure you want to approve this expense?')) {
                     // Convert id to string if needed
                     const expenseId = String(id);
                     const expense = expenses.find(e => String(e.id) === expenseId);
@@ -3098,7 +3127,7 @@
 
         async function rejectExpense(id) {
             try {
-                if (confirm('Are you sure you want to reject this expense?')) {
+            if (confirm('Are you sure you want to reject this expense?')) {
                     // Convert id to string if needed
                     const expenseId = String(id);
                     const expense = expenses.find(e => String(e.id) === expenseId);
