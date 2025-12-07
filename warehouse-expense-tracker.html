@@ -2262,7 +2262,7 @@
                         ${expense.vendorName ? `<br>🏪 Vendor: <strong>${expense.vendorName}</strong>` : ''}
                         ${expense.paymentMode ? `<br>💳 Payment: <strong>${expense.paymentMode}</strong>` : ''}
                         ${expense.invoiceNumber ? `<br>🧾 Invoice: <strong>${expense.invoiceNumber}</strong>` : ''}
-                        ${expense.approvedBy ? `<br>✅ Approved by: ${users[expense.approvedBy]?.name || expense.approvedBy}` : ''}
+                        ${expense.approvedBy ? `<br>✅ Approved by: <strong>${users[expense.approvedBy]?.name || 'Approver'}</strong>` : ''}
                     </div>
                     ${expense.description ? `<div class="expense-description">${expense.description}</div>` : ''}
                     ${expense.invoiceFile ? `
