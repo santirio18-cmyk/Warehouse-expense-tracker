@@ -2074,10 +2074,11 @@
         }
         
         // Clear storage functionality
-        function clearStorage() {
-            if (confirm('This will delete all data including expenses and users. Are you sure?')) {
+        async function clearStorage() {
+            const confirmed = await customConfirm('This will delete all data including expenses and users. Are you sure?');
+            if (confirmed) {
                 localStorage.clear();
-                alert('Storage cleared! Page will reload.');
+                await customAlert('Storage cleared! Page will reload.');
                 location.reload();
             }
         }
@@ -2256,7 +2257,8 @@
                 );
                 
                 if (sameDaySameVendor.length >= 3) {
-                    if (!confirm(`Warning: This will be the ${sameDaySameVendor.length + 1} expense from vendor "${vendorName}" on ${expenseDate}. Are you sure you want to continue?`)) {
+                    const confirmed = await customConfirm(`Warning: This will be the ${sameDaySameVendor.length + 1} expense from vendor "${vendorName}" on ${expenseDate}. Are you sure you want to continue?`);
+                    if (!confirmed) {
                         return;
                     }
                 }
@@ -2543,7 +2545,8 @@
 
         // Delete expense
         async function deleteExpense(id) {
-            if (confirm('Are you sure you want to delete this expense?')) {
+            const confirmed = await customConfirm('Are you sure you want to delete this expense?');
+            if (confirmed) {
                 expenses = expenses.filter(expense => expense.id !== id);
                 await deleteExpenseFirebase(id);
                 await saveAllExpenses(expenses);
@@ -2940,7 +2943,7 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             
-            alert('✅ Template downloaded! Fill in the budget values and upload.');
+            await customAlert('✅ Template downloaded! Fill in the budget values and upload.');
         }
         
         function uploadBudgetFile(event) {
@@ -2980,7 +2983,7 @@
             const previewListDiv = document.getElementById('budgetPreviewList');
             
             if (Object.keys(uploadedBudgetData).length === 0) {
-                alert('❌ No valid budget data found in the CSV file.');
+                await customAlert('❌ No valid budget data found in the CSV file.');
                 return;
             }
             
@@ -3068,13 +3071,13 @@
             const warehouse = selectedWarehouses.length > 0 ? selectedWarehouses.join(',') : '';
             
             if (users[username]) {
-                alert('❌ Username already exists!');
+                await customAlert('❌ Username already exists!');
                 return;
             }
             
             // Validate warehouse is required for warehouse role
             if (role === 'warehouse' && selectedWarehouses.length === 0) {
-                alert('❌ At least one warehouse is required for warehouse entry users!');
+                await customAlert('❌ At least one warehouse is required for warehouse entry users!');
                 return;
             }
             
@@ -3088,7 +3091,7 @@
             
             await saveUser(username, users[username]);
             
-            alert(`✅ User "${name}" created successfully!`);
+            await customAlert(`✅ User "${name}" created successfully!`);
             
             // Reset form
             this.reset();
@@ -3100,16 +3103,17 @@
         
         async function deleteUser(username) {
             if (username === 'admin') {
-                alert('❌ Cannot delete master admin user!');
+                await customAlert('❌ Cannot delete master admin user!');
                 return;
             }
             
-            if (confirm(`Are you sure you want to delete user "${users[username].name}"?`)) {
+            const confirmed = await customConfirm(`Are you sure you want to delete user "${users[username].name}"?`);
+            if (confirmed) {
                 delete users[username];
                 await deleteUserFirebase(username);
                 // Also save to localStorage as backup
                 localStorage.setItem('warehouseUsers', JSON.stringify(users));
-                alert('✅ User deleted successfully!');
+                await customAlert('✅ User deleted successfully!');
                 users = await getUsers();
                 loadUsers();
             }
@@ -3283,7 +3287,8 @@
                         `Warehouse: ${expense.warehouse}\n\n` +
                         `Do you want to approve this expense?`;
                     
-            if (confirm(confirmMessage)) {
+            const confirmed = await customConfirm(confirmMessage);
+            if (confirmed) {
                     expense.status = 'approved';
                     expense.approvedBy = currentUser;
                     expense.approvedAt = new Date().toISOString();
@@ -3318,7 +3323,8 @@
                         `Warehouse: ${expense.warehouse}\n\n` +
                         `Do you want to reject this expense?`;
                     
-            if (confirm(confirmMessage)) {
+            const confirmed = await customConfirm(confirmMessage);
+            if (confirmed) {
                     expense.status = 'rejected';
                     expense.approvedBy = currentUser;
                     expense.approvedAt = new Date().toISOString();
