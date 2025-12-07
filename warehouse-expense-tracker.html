@@ -3229,9 +3229,9 @@
                     expense.invoiceNumber || '',
                     `"${expense.description || ''}"`,
                     expense.warehouse,
-                    expense.createdBy,
+                    users[expense.createdBy]?.name || expense.createdBy,
                     expense.status || 'pending',
-                    expense.approvedBy || '',
+                    expense.approvedBy ? (users[expense.approvedBy]?.name || 'Approver') : '',
                     expense.approvedAt || ''
                 ].join(','))
             ].join('\n');
@@ -3261,9 +3261,9 @@ ${expense.invoiceNumber ? `Invoice: ${expense.invoiceNumber}` : ''}
 ${expense.invoiceFile ? `Invoice File: ${expense.invoiceFile.filename}` : ''}
 Description: ${expense.description || 'N/A'}
 Warehouse: ${expense.warehouse}
-Created By: ${expense.createdBy}
+Created By: ${users[expense.createdBy]?.name || expense.createdBy}
 Status: ${expense.status || 'pending'}
-${expense.approvedBy ? `Approved By: ${expense.approvedBy}` : ''}
+${expense.approvedBy ? `Approved By: ${users[expense.approvedBy]?.name || 'Approver'}` : ''}
 ${expense.approvedAt ? `Approved At: ${new Date(expense.approvedAt).toLocaleString()}` : ''}
 ---`).join('')}
             `;
