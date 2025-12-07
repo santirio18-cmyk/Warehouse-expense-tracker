@@ -1894,6 +1894,69 @@
             }
         })();
         
+        // Custom Modal Functions
+        function customAlert(message) {
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('customModalOverlay');
+                const title = document.getElementById('customModalTitle');
+                const body = document.getElementById('customModalMessage');
+                const footer = document.getElementById('customModalFooter');
+                
+                title.textContent = 'myTVS Expenses Management';
+                body.textContent = message;
+                footer.innerHTML = '<button class="custom-modal-btn custom-modal-btn-primary" onclick="closeCustomModal(); window.customModalResolve(true);">OK</button>';
+                
+                overlay.classList.add('show');
+                
+                // Close on overlay click
+                overlay.onclick = (e) => {
+                    if (e.target === overlay) {
+                        closeCustomModal();
+                        resolve(true);
+                    }
+                };
+                
+                window.customModalResolve = resolve;
+            });
+        }
+        
+        function customConfirm(message) {
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('customModalOverlay');
+                const title = document.getElementById('customModalTitle');
+                const body = document.getElementById('customModalMessage');
+                const footer = document.getElementById('customModalFooter');
+                
+                title.textContent = 'myTVS Expenses Management';
+                body.textContent = message;
+                footer.innerHTML = `
+                    <button class="custom-modal-btn custom-modal-btn-secondary" onclick="closeCustomModal(); window.customModalResolve(false);">Cancel</button>
+                    <button class="custom-modal-btn custom-modal-btn-primary" onclick="closeCustomModal(); window.customModalResolve(true);">OK</button>
+                `;
+                
+                overlay.classList.add('show');
+                
+                // Close on overlay click (cancel)
+                overlay.onclick = (e) => {
+                    if (e.target === overlay) {
+                        closeCustomModal();
+                        resolve(false);
+                    }
+                };
+                
+                window.customModalResolve = resolve;
+            });
+        }
+        
+        function closeCustomModal() {
+            const overlay = document.getElementById('customModalOverlay');
+            overlay.classList.remove('show');
+        }
+        
+        // Override native alert and confirm
+        window.alert = customAlert;
+        window.confirm = customConfirm;
+        
         // Helper function to check if user has access to a warehouse
         function hasWarehouseAccess(user, warehouse) {
             if (!user.warehouse || user.warehouse === '') {
