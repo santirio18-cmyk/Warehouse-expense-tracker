@@ -41,20 +41,20 @@
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 15px;
             position: relative;
             z-index: 1;
         }
 
         .header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 15px;
             color: #003366;
             background: var(--mytvs-white);
             border: 3px solid var(--mytvs-orange);
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 8px 25px rgba(255, 102, 0, 0.15);
+            border-radius: 12px;
+            padding: 15px 20px;
+            box-shadow: 0 4px 15px rgba(255, 102, 0, 0.15);
             position: relative;
             overflow: hidden;
         }
@@ -70,7 +70,7 @@
         }
 
         .logo {
-            margin-bottom: 20px;
+            margin-bottom: 8px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -82,7 +82,7 @@
         }
 
         .logo-text {
-            font-size: 3rem;
+            font-size: 2rem;
             font-weight: bold;
             font-family: 'Arial', sans-serif;
             letter-spacing: -1px;
@@ -99,20 +99,20 @@
         }
 
         .header h1 {
-            font-size: 2.2rem;
-            margin-bottom: 10px;
+            font-size: 1.5rem;
+            margin-bottom: 5px;
             color: #003366;
             font-weight: 700;
             text-shadow: 0 2px 4px rgba(0,0,0,0.1);
             border-bottom: 2px solid var(--mytvs-orange);
-            padding-bottom: 15px;
-            margin-bottom: 15px;
+            padding-bottom: 8px;
+            margin-bottom: 8px;
         }
 
         .header p {
-            font-size: 1.15rem;
+            font-size: 0.9rem;
             color: #666;
-            margin-top: 10px;
+            margin-top: 5px;
             font-weight: 500;
         }
 
@@ -138,7 +138,8 @@
         .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px;
+            gap: 20px;
+            margin-bottom: 15px;
         }
 
         label {
@@ -238,24 +239,24 @@
         .nav-tabs {
             display: flex;
             justify-content: center;
-            margin-bottom: 30px;
+            margin-bottom: 15px;
             background: var(--mytvs-white);
-            border-radius: 15px;
-            padding: 8px;
+            border-radius: 12px;
+            padding: 6px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
         .nav-tab {
-            padding: 18px 32px;
-            margin: 0 5px;
+            padding: 12px 20px;
+            margin: 0 3px;
             background: transparent;
             border: none;
             color: var(--mytvs-blue);
-            border-radius: 10px;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
             font-weight: 700;
-            font-size: 22px;
+            font-size: 16px;
         }
 
         .nav-tab.active {
@@ -290,46 +291,46 @@
 
         .user-info {
             background: var(--mytvs-blue);
-            padding: 18px 25px;
-            border-radius: 10px;
-            margin-bottom: 25px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
             color: white;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 18px;
+            font-size: 15px;
             font-weight: 600;
         }
         
         .user-info strong {
-            font-size: 18px;
+            font-size: 15px;
             font-weight: 700;
         }
 
         .warehouse-selector {
             background: #f8f9fa;
-            padding: 25px 30px;
-            border-radius: 15px;
-            margin-bottom: 30px;
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
             border: 2px solid #e1e5e9;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
         
         .warehouse-selector h3 {
-            font-size: 20px;
+            font-size: 16px;
             font-weight: 700;
             color: #003366;
-            margin-bottom: 18px;
+            margin-bottom: 10px;
         }
         
         .warehouse-selector select {
-            font-size: 18px;
+            font-size: 15px;
             font-weight: 600;
-            padding: 14px 20px;
+            padding: 10px 15px;
             width: 100%;
             max-width: 400px;
             border: 2px solid #e1e5e9;
-            border-radius: 10px;
+            border-radius: 8px;
             background: white;
             color: #003366;
             cursor: pointer;
@@ -435,9 +436,16 @@
 
         .filter-section {
             background: #f8f9fa;
-            padding: 20px;
+            padding: 25px 30px;
             border-radius: 15px;
-            margin-bottom: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .filter-section h3 {
+            margin-bottom: 18px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #003366;
         }
 
         .filter-buttons {
@@ -447,14 +455,15 @@
         }
 
         .filter-btn {
-            padding: 8px 16px;
+            padding: 12px 24px;
             border: 2px solid var(--mytvs-orange);
             background: transparent;
             color: var(--mytvs-orange);
             border-radius: 20px;
             cursor: pointer;
             transition: all 0.3s ease;
-            font-weight: 500;
+            font-weight: 600;
+            font-size: 15px;
         }
 
         .filter-btn.active {
@@ -1440,14 +1449,17 @@
                                 <input type="text" id="newName" required placeholder="Enter full name">
                             </div>
                             <div class="form-group">
-                                <label for="newEmail">Email Address <span style="color: red;">*</span></label>
-                                <input type="email" id="newEmail" required placeholder="Enter email address">
+                                <label for="newEmployeeCode">Employee Code</label>
+                                <input type="text" id="newEmployeeCode" required placeholder="Enter employee code">
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="newEmployeeCode">Employee Code</label>
-                                <input type="text" id="newEmployeeCode" required placeholder="Enter employee code">
+                                <label for="newEmail">Email Address *</label>
+                                <input type="email" id="newEmail" required placeholder="Enter email address (e.g., user@example.com)">
+                                <small style="color: #6c757d; font-size: 12px; display: block; margin-top: 5px;">
+                                    📧 Email notifications will be sent to this address
+                                </small>
                             </div>
                         </div>
                         <div class="form-row">
@@ -1543,26 +1555,133 @@
             console.log('ℹ️ Firebase not configured - using localStorage');
         }
         
-        // Initialize EmailJS
-        // IMPORTANT: Replace with your EmailJS Public Key after setup
-        const EMAILJS_PUBLIC_KEY = 'YOUR_EMAILJS_PUBLIC_KEY'; // Get from https://dashboard.emailjs.com/admin/integration
-        const EMAILJS_SERVICE_ID = 'YOUR_SERVICE_ID'; // Get from https://dashboard.emailjs.com/admin
-        const EMAILJS_TEMPLATE_SUBMIT = 'YOUR_TEMPLATE_ID_SUBMIT'; // Template for expense submission
-        const EMAILJS_TEMPLATE_APPROVE = 'YOUR_TEMPLATE_ID_APPROVE'; // Template for approval
-        const EMAILJS_TEMPLATE_REJECT = 'YOUR_TEMPLATE_ID_REJECT'; // Template for rejection
+        // ============================================
+        // EMAILJS CONFIGURATION
+        // ============================================
+        // EmailJS Public Key - Replace with your EmailJS public key
+        // Get it from: https://dashboard.emailjs.com/admin/integration
+        const EMAILJS_PUBLIC_KEY = 'YOUR_EMAILJS_PUBLIC_KEY'; // Replace with your EmailJS public key
+        const EMAILJS_SERVICE_ID = 'YOUR_SERVICE_ID'; // Replace with your EmailJS service ID
+        const EMAILJS_TEMPLATE_ID_USER = 'YOUR_TEMPLATE_ID_USER'; // Template for user creation
+        const EMAILJS_TEMPLATE_ID_EXPENSE = 'YOUR_TEMPLATE_ID_EXPENSE'; // Template for expense submission
+        const EMAILJS_TEMPLATE_ID_APPROVAL = 'YOUR_TEMPLATE_ID_APPROVAL'; // Template for approval/rejection
         
-        let useEmailJS = false;
+        // Initialize EmailJS (only if public key is provided)
+        let emailjsInitialized = false;
         if (EMAILJS_PUBLIC_KEY && EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY') {
             try {
                 emailjs.init(EMAILJS_PUBLIC_KEY);
-                useEmailJS = true;
+                emailjsInitialized = true;
                 console.log('✅ EmailJS initialized successfully');
             } catch (error) {
                 console.error('❌ EmailJS initialization error:', error);
-                useEmailJS = false;
+                emailjsInitialized = false;
             }
         } else {
-            console.log('ℹ️ EmailJS not configured - email notifications disabled');
+            console.log('ℹ️ EmailJS not configured - email notifications will be disabled');
+        }
+        
+        // ============================================
+        // EMAIL SENDING FUNCTIONS
+        // ============================================
+        
+        async function sendUserCreationEmail(userEmail, userName, username, password, role) {
+            if (!emailjsInitialized) {
+                console.log('ℹ️ EmailJS not configured - skipping email notification');
+                return;
+            }
+            
+            try {
+                const templateParams = {
+                    to_email: userEmail,
+                    user_name: userName,
+                    username: username,
+                    password: password,
+                    role: role,
+                    app_name: 'SCM Petty Cash Expense Management System'
+                };
+                
+                await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID_USER, templateParams);
+                console.log('✅ User creation email sent successfully');
+            } catch (error) {
+                console.error('❌ Error sending user creation email:', error);
+                // Don't throw error - email failure shouldn't block user creation
+            }
+        }
+        
+        async function sendExpenseSubmissionEmail(expense, userEmail, userName) {
+            if (!emailjsInitialized) {
+                console.log('ℹ️ EmailJS not configured - skipping email notification');
+                return;
+            }
+            
+            try {
+                // Get approver emails (Master and Approver roles)
+                const approvers = Object.entries(users)
+                    .filter(([_, user]) => user.role === 'master' || user.role === 'approver')
+                    .map(([_, user]) => user.email)
+                    .filter(email => email); // Remove undefined emails
+                
+                if (approvers.length === 0) {
+                    console.log('ℹ️ No approver emails found - skipping notification');
+                    return;
+                }
+                
+                const templateParams = {
+                    to_email: approvers.join(','), // Send to all approvers
+                    submitter_name: userName,
+                    submitter_email: userEmail,
+                    expense_amount: `₹${expense.amount.toFixed(2)}`,
+                    expense_category: expense.category,
+                    expense_vendor: expense.vendorName || 'N/A',
+                    expense_warehouse: expense.warehouse,
+                    expense_date: expense.date,
+                    expense_invoice: expense.invoiceNumber || 'N/A',
+                    app_name: 'SCM Petty Cash Expense Management System'
+                };
+                
+                await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID_EXPENSE, templateParams);
+                console.log('✅ Expense submission email sent successfully');
+            } catch (error) {
+                console.error('❌ Error sending expense submission email:', error);
+                // Don't throw error - email failure shouldn't block expense submission
+            }
+        }
+        
+        async function sendApprovalEmail(expense, action, approverName) {
+            if (!emailjsInitialized) {
+                console.log('ℹ️ EmailJS not configured - skipping email notification');
+                return;
+            }
+            
+            try {
+                // Get submitter email
+                const submitter = users[expense.createdBy];
+                if (!submitter || !submitter.email) {
+                    console.log('ℹ️ Submitter email not found - skipping notification');
+                    return;
+                }
+                
+                const templateParams = {
+                    to_email: submitter.email,
+                    submitter_name: submitter.name,
+                    approver_name: approverName,
+                    action: action, // 'approved' or 'rejected'
+                    expense_amount: `₹${expense.amount.toFixed(2)}`,
+                    expense_category: expense.category,
+                    expense_vendor: expense.vendorName || 'N/A',
+                    expense_warehouse: expense.warehouse,
+                    expense_date: expense.date,
+                    expense_invoice: expense.invoiceNumber || 'N/A',
+                    app_name: 'SCM Petty Cash Expense Management System'
+                };
+                
+                await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID_APPROVAL, templateParams);
+                console.log(`✅ ${action} email sent successfully`);
+            } catch (error) {
+                console.error(`❌ Error sending ${action} email:`, error);
+                // Don't throw error - email failure shouldn't block approval/rejection
+            }
         }
         
         // ============================================
@@ -1609,14 +1728,14 @@
                 });
                 
                 if (!cleanedUsers['admin']) {
-                    cleanedUsers['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin', email: '' };
+                    cleanedUsers['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
                 }
                 
                 localStorage.setItem('warehouseUsers', JSON.stringify(cleanedUsers));
                 return cleanedUsers;
             } else {
                 const defaultUsers = {
-                    'admin': { password: 'admin123', role: 'master', name: 'Master Admin', email: '' }
+                    'admin': { password: 'admin123', role: 'master', name: 'Master Admin' }
                 };
                 localStorage.setItem('warehouseUsers', JSON.stringify(defaultUsers));
                 return defaultUsers;
@@ -2448,8 +2567,11 @@
                 expenses.push(expense);
                 await saveExpense(expense);
                 
-                // Send email notification to submitter and approvers
-                await sendExpenseSubmissionEmail(expense);
+                // Send email notification to approvers
+                const currentUserData = users[currentUser];
+                if (currentUserData && currentUserData.email) {
+                    await sendExpenseSubmissionEmail(expense, currentUserData.email, currentUserData.name);
+                }
                 
                 // Reload expenses from Firebase to ensure invoice file is properly structured
                 if (useFirebase && db) {
@@ -3214,8 +3336,16 @@
             const password = document.getElementById('newPassword').value;
             const name = document.getElementById('newName').value;
             const employeeCode = document.getElementById('newEmployeeCode').value;
+            const email = document.getElementById('newEmail').value.trim();
             const role = document.getElementById('newRole').value;
             const warehouseSelect = document.getElementById('newWarehouse');
+            
+            // Validate email format
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                await customAlert('❌ Please enter a valid email address!');
+                return;
+            }
             
             // Get selected warehouses (multiple selection)
             const selectedWarehouses = Array.from(warehouseSelect.selectedOptions).map(option => option.value);
@@ -3232,20 +3362,21 @@
                 return;
             }
             
-            const email = document.getElementById('newEmail').value;
-            
             users[username] = {
                 password: password,
                 role: role,
                 name: name,
-                email: email,
                 employeeCode: employeeCode,
+                email: email,
                 warehouse: warehouse // Store as comma-separated string or empty for "all"
             };
             
             await saveUser(username, users[username]);
             
-            await customAlert(`✅ User "${name}" created successfully!`);
+            // Send welcome email to new user
+            await sendUserCreationEmail(email, name, username, password, role);
+            
+            await customAlert(`✅ User "${name}" created successfully! Email notification sent to ${email}.`);
             
             // Reset form
             this.reset();
@@ -3449,7 +3580,10 @@
                     await saveExpense(expense);
                     
                     // Send approval email notification
-                    await sendApprovalEmail(expense, 'approved');
+                    const approverData = users[currentUser];
+                    if (approverData && approverData.name) {
+                        await sendApprovalEmail(expense, 'approved', approverData.name);
+                    }
                     
                     displayApprovals();
                     displayExpenses();
@@ -3487,6 +3621,13 @@
                     expense.approvedBy = currentUser;
                     expense.approvedAt = new Date().toISOString();
                     await saveExpense(expense);
+                    
+                    // Send rejection email notification
+                    const approverData = users[currentUser];
+                    if (approverData && approverData.name) {
+                        await sendApprovalEmail(expense, 'rejected', approverData.name);
+                    }
+                    
                     displayApprovals();
                     showToast('success', 'Success', 'Expense rejected successfully!');
                 }

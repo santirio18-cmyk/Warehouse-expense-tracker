@@ -1,175 +1,243 @@
-# EmailJS Setup Guide for Email Notifications
+# EmailJS Setup Guide
 
-## Overview
-The expense management system now supports email notifications using EmailJS. Users will receive emails when:
-- An expense is submitted (notifies approvers)
-- An expense is approved (notifies submitter)
-- An expense is rejected (notifies submitter)
+This guide will help you set up EmailJS to enable email notifications in the SCM Petty Cash Expense Management System.
+
+## What is EmailJS?
+
+EmailJS is a service that allows you to send emails directly from client-side JavaScript without a backend server. It's perfect for this application as it enables email notifications for:
+- User creation (welcome emails)
+- Expense submission (notifications to approvers)
+- Expense approval/rejection (notifications to submitters)
 
 ## Step 1: Create EmailJS Account
 
-1. Go to https://www.emailjs.com/
-2. Click **"Sign Up"** (free account available)
-3. Create account with your email
-4. Verify your email address
+1. Go to [https://www.emailjs.com/](https://www.emailjs.com/)
+2. Click "Sign Up" and create a free account
+3. Verify your email address
 
-## Step 2: Add Email Service
+## Step 2: Get Your Public Key
 
-1. Log in to EmailJS Dashboard: https://dashboard.emailjs.com/
-2. Go to **"Email Services"** in the left menu
-3. Click **"Add New Service"**
-4. Choose your email provider:
+1. After logging in, go to **Account** → **General**
+2. Find your **Public Key** (it looks like: `abcdefghijklmnop`)
+3. Copy this key - you'll need it in Step 5
+
+## Step 3: Add Email Service
+
+1. Go to **Email Services** in the dashboard
+2. Click **Add New Service**
+3. Choose your email provider:
    - **Gmail** (recommended for testing)
    - **Outlook**
    - **Yahoo**
-   - **Custom SMTP**
-5. Follow the setup instructions for your provider
-6. **Save the Service ID** (you'll need this later)
+   - **Custom SMTP** (for corporate emails)
+4. Follow the setup instructions for your provider
+5. Note your **Service ID** (e.g., `service_abc123`)
 
-## Step 3: Create Email Templates
+### For Gmail:
+- You'll need to enable "Less secure app access" or use an App Password
+- Or use OAuth 2.0 for better security
 
-You need to create 3 email templates:
+## Step 4: Create Email Templates
 
-### Template 1: Expense Submission Notification
+You need to create **3 email templates**:
 
-1. Go to **"Email Templates"** in the left menu
-2. Click **"Create New Template"**
-3. **Template Name**: `expense_submission`
-4. **Subject**: `New Expense Submitted - Approval Required`
-5. **Content** (HTML):
-```html
-<h2>New Expense Submitted</h2>
-<p>Dear Approver,</p>
-<p>A new expense has been submitted and requires your approval:</p>
-<ul>
-    <li><strong>Submitted By:</strong> {{submitter_name}}</li>
-    <li><strong>Amount:</strong> {{expense_amount}}</li>
-    <li><strong>Vendor:</strong> {{expense_vendor}}</li>
-    <li><strong>Category:</strong> {{expense_category}}</li>
-    <li><strong>Warehouse:</strong> {{expense_warehouse}}</li>
-    <li><strong>Date:</strong> {{expense_date}}</li>
-    <li><strong>Invoice Number:</strong> {{expense_invoice}}</li>
-    <li><strong>Description:</strong> {{expense_description}}</li>
-</ul>
-<p>Please log in to the system to review and approve/reject this expense.</p>
-<p>Thank you!</p>
+### Template 1: User Creation (Welcome Email)
+
+1. Go to **Email Templates** → **Create New Template**
+2. **Template ID**: Name it `template_user_creation` (or note the ID provided)
+3. **Subject**: `Welcome to {{app_name}} - Your Account Has Been Created`
+4. **Content**:
 ```
-6. Click **"Save"**
-7. **Copy the Template ID** (you'll need this)
+Hello {{user_name}},
 
-### Template 2: Expense Approval Notification
+Your account has been successfully created in the {{app_name}}.
 
-1. Click **"Create New Template"**
-2. **Template Name**: `expense_approval`
-3. **Subject**: `Expense Approved - {{expense_amount}}`
-4. **Content** (HTML):
-```html
-<h2>Expense Approved ✅</h2>
-<p>Dear {{submitter_name}},</p>
-<p>Your expense has been approved by {{approver_name}}:</p>
-<ul>
-    <li><strong>Amount:</strong> {{expense_amount}}</li>
-    <li><strong>Vendor:</strong> {{expense_vendor}}</li>
-    <li><strong>Category:</strong> {{expense_category}}</li>
-    <li><strong>Warehouse:</strong> {{expense_warehouse}}</li>
-    <li><strong>Date:</strong> {{expense_date}}</li>
-    <li><strong>Invoice Number:</strong> {{expense_invoice}}</li>
-</ul>
-<p>Thank you!</p>
+Account Details:
+- Username: {{username}}
+- Password: {{password}}
+- Role: {{role}}
+
+Please log in and change your password for security.
+
+Best regards,
+{{app_name}} Team
 ```
-5. Click **"Save"**
-6. **Copy the Template ID**
+5. **To Email**: `{{to_email}}`
+6. **From Name**: `SCM Expense Management`
+7. **From Email**: Your verified email address
+8. Click **Save**
 
-### Template 3: Expense Rejection Notification
+### Template 2: Expense Submission (Notification to Approvers)
 
-1. Click **"Create New Template"**
-2. **Template Name**: `expense_rejection`
-3. **Subject**: `Expense Rejected - {{expense_amount}}`
-4. **Content** (HTML):
-```html
-<h2>Expense Rejected ❌</h2>
-<p>Dear {{submitter_name}},</p>
-<p>Your expense has been rejected by {{approver_name}}:</p>
-<ul>
-    <li><strong>Amount:</strong> {{expense_amount}}</li>
-    <li><strong>Vendor:</strong> {{expense_vendor}}</li>
-    <li><strong>Category:</strong> {{expense_category}}</li>
-    <li><strong>Warehouse:</strong> {{expense_warehouse}}</li>
-    <li><strong>Date:</strong> {{expense_date}}</li>
-    <li><strong>Invoice Number:</strong> {{expense_invoice}}</li>
-</ul>
-<p>Please contact the approver if you have any questions.</p>
-<p>Thank you!</p>
+1. Go to **Email Templates** → **Create New Template**
+2. **Template ID**: Name it `template_expense_submission` (or note the ID provided)
+3. **Subject**: `New Expense Submitted - {{expense_amount}} - {{expense_category}}`
+4. **Content**:
 ```
-5. Click **"Save"**
-6. **Copy the Template ID**
+Hello,
 
-## Step 4: Get Your Public Key
+A new expense has been submitted and requires your approval.
 
-1. Go to **"Account"** → **"General"** in the left menu
-2. Find **"API Keys"** section
-3. Copy your **Public Key** (starts with something like `user_xxxxxxxxxxxxx`)
+Expense Details:
+- Amount: {{expense_amount}}
+- Category: {{expense_category}}
+- Vendor: {{expense_vendor}}
+- Warehouse: {{expense_warehouse}}
+- Date: {{expense_date}}
+- Invoice Number: {{expense_invoice}}
+- Submitted by: {{submitter_name}} ({{submitter_email}})
 
-## Step 5: Update HTML File
+Please log in to review and approve/reject this expense.
 
-Open `warehouse-expense-tracker.html` and find this section (around line 1515):
+Best regards,
+{{app_name}}
+```
+5. **To Email**: `{{to_email}}` (will be comma-separated list of approver emails)
+6. **From Name**: `SCM Expense Management`
+7. **From Email**: Your verified email address
+8. Click **Save**
+
+### Template 3: Approval/Rejection (Notification to Submitter)
+
+1. Go to **Email Templates** → **Create New Template**
+2. **Template ID**: Name it `template_approval` (or note the ID provided)
+3. **Subject**: `Expense {{action}} - {{expense_amount}} - {{expense_category}}`
+4. **Content**:
+```
+Hello {{submitter_name}},
+
+Your expense submission has been {{action}}.
+
+Expense Details:
+- Amount: {{expense_amount}}
+- Category: {{expense_category}}
+- Vendor: {{expense_vendor}}
+- Warehouse: {{expense_warehouse}}
+- Date: {{expense_date}}
+- Invoice Number: {{expense_invoice}}
+- Status: {{action}}
+- Reviewed by: {{approver_name}}
+
+{{#if (eq action "approved")}}
+✅ Your expense has been approved!
+{{else}}
+❌ Your expense has been rejected. Please review and resubmit if needed.
+{{/if}}
+
+Best regards,
+{{app_name}}
+```
+5. **To Email**: `{{to_email}}`
+6. **From Name**: `SCM Expense Management`
+7. **From Email**: Your verified email address
+8. Click **Save**
+
+## Step 5: Update HTML File with Your Credentials
+
+1. Open `warehouse-expense-tracker.html`
+2. Find the EmailJS configuration section (around line 1557)
+3. Replace the placeholder values:
 
 ```javascript
-// Initialize EmailJS
-const EMAILJS_PUBLIC_KEY = 'YOUR_EMAILJS_PUBLIC_KEY';
-const EMAILJS_SERVICE_ID = 'YOUR_SERVICE_ID';
-const EMAILJS_TEMPLATE_SUBMIT = 'YOUR_TEMPLATE_ID_SUBMIT';
-const EMAILJS_TEMPLATE_APPROVE = 'YOUR_TEMPLATE_ID_APPROVE';
-const EMAILJS_TEMPLATE_REJECT = 'YOUR_TEMPLATE_ID_REJECT';
+const EMAILJS_PUBLIC_KEY = 'YOUR_EMAILJS_PUBLIC_KEY'; // Replace with your Public Key from Step 2
+const EMAILJS_SERVICE_ID = 'YOUR_SERVICE_ID'; // Replace with your Service ID from Step 3
+const EMAILJS_TEMPLATE_ID_USER = 'YOUR_TEMPLATE_ID_USER'; // Replace with Template 1 ID
+const EMAILJS_TEMPLATE_ID_EXPENSE = 'YOUR_TEMPLATE_ID_EXPENSE'; // Replace with Template 2 ID
+const EMAILJS_TEMPLATE_ID_APPROVAL = 'YOUR_TEMPLATE_ID_APPROVAL'; // Replace with Template 3 ID
 ```
 
-Replace with your actual values:
-
+### Example:
 ```javascript
-const EMAILJS_PUBLIC_KEY = 'user_xxxxxxxxxxxxx'; // Your Public Key from Step 4
-const EMAILJS_SERVICE_ID = 'service_xxxxxxxx'; // Your Service ID from Step 2
-const EMAILJS_TEMPLATE_SUBMIT = 'template_xxxxxxxx'; // Template ID for submission
-const EMAILJS_TEMPLATE_APPROVE = 'template_xxxxxxxx'; // Template ID for approval
-const EMAILJS_TEMPLATE_REJECT = 'template_xxxxxxxx'; // Template ID for rejection
+const EMAILJS_PUBLIC_KEY = 'abcdefghijklmnop';
+const EMAILJS_SERVICE_ID = 'service_abc123';
+const EMAILJS_TEMPLATE_ID_USER = 'template_xyz789';
+const EMAILJS_TEMPLATE_ID_EXPENSE = 'template_def456';
+const EMAILJS_TEMPLATE_ID_APPROVAL = 'template_ghi789';
 ```
 
 ## Step 6: Test Email Notifications
 
-1. Create a new user with a valid email address
-2. Submit an expense
-3. Check the email inbox for the submission notification
-4. Approve the expense
-5. Check the submitter's email for approval notification
+1. **Test User Creation**:
+   - Create a new user with a valid email address
+   - Check the user's inbox for the welcome email
+
+2. **Test Expense Submission**:
+   - Log in as a warehouse user
+   - Submit an expense
+   - Check approver emails for the notification
+
+3. **Test Approval/Rejection**:
+   - Log in as an approver/master
+   - Approve or reject an expense
+   - Check submitter's email for the notification
 
 ## EmailJS Free Tier Limits
 
-- **200 emails/month** (free tier)
+- **200 emails per month** (free tier)
 - **2 email services**
-- **2 email templates**
-- **Unlimited contacts**
+- **2 email templates** (you need 3, so you may need to upgrade or reuse templates)
 
-For production use with high volume, consider upgrading to a paid plan.
+### Upgrade Options:
+- **Paid plans** start at $15/month for 1,000 emails
+- **Business plans** available for higher volumes
 
 ## Troubleshooting
 
-### Emails not sending?
-1. Check browser console for errors
-2. Verify all IDs are correct in the HTML file
-3. Check EmailJS dashboard for delivery status
-4. Ensure email service is properly connected
+### Emails Not Sending?
 
-### Template variables not working?
-- Make sure variable names match exactly (case-sensitive)
-- Use double curly braces: `{{variable_name}}`
+1. **Check Browser Console**:
+   - Open Developer Tools (F12)
+   - Look for EmailJS errors in the Console tab
+   - Common errors:
+     - `EmailJS not configured` - Check your public key
+     - `Service not found` - Check your service ID
+     - `Template not found` - Check your template IDs
 
-### Need help?
-- EmailJS Documentation: https://www.emailjs.com/docs/
-- EmailJS Support: https://www.emailjs.com/support/
+2. **Verify EmailJS Initialization**:
+   - Look for: `✅ EmailJS initialized successfully` in console
+   - If you see: `ℹ️ EmailJS not configured` - your public key is not set
+
+3. **Check Email Service**:
+   - Go to EmailJS dashboard → Email Services
+   - Ensure your service is "Active"
+   - Test the service connection
+
+4. **Check Template Variables**:
+   - Ensure all template variables match exactly (case-sensitive)
+   - Variables should be wrapped in `{{}}` in templates
+
+### Email Formatting Issues?
+
+- EmailJS templates support HTML
+- You can use HTML tags for better formatting:
+```html
+<h2>Expense Details</h2>
+<p><strong>Amount:</strong> {{expense_amount}}</p>
+```
+
+## Security Notes
+
+1. **Public Key Exposure**: The EmailJS public key is safe to expose in client-side code. It's designed for public use.
+
+2. **Rate Limiting**: EmailJS has rate limits to prevent abuse. If you exceed limits, emails will fail.
+
+3. **Email Validation**: The application validates email format before sending, but EmailJS will also validate.
+
+## Next Steps
+
+1. Set up your EmailJS account
+2. Configure the 3 email templates
+3. Update the HTML file with your credentials
+4. Test all three email notification types
+5. Monitor email delivery in the EmailJS dashboard
+
+## Support
+
+- **EmailJS Documentation**: [https://www.emailjs.com/docs/](https://www.emailjs.com/docs/)
+- **EmailJS Support**: [https://www.emailjs.com/support/](https://www.emailjs.com/support/)
 
 ---
 
-**Note:** Email notifications will only work if:
-1. EmailJS is properly configured
-2. Users have valid email addresses in their profiles
-3. Email service is connected and verified
+**Note**: Email notifications will only work after you complete the EmailJS setup. Until then, the application will log messages to the console but won't send emails.
+
 
