@@ -161,20 +161,25 @@
         
         .password-toggle {
             position: absolute;
-            right: 15px;
+            right: 12px;
             top: 50%;
             transform: translateY(-50%);
-            background: none;
-            border: none;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #e1e5e9;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 18px;
-            color: #666;
-            padding: 5px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            padding: 6px 10px;
             z-index: 10;
+            transition: all 0.3s ease;
         }
         
         .password-toggle:hover {
-            color: var(--mytvs-orange);
+            background: var(--mytvs-orange);
+            color: white;
+            border-color: var(--mytvs-orange);
         }
         
         .password-input-wrapper input {
@@ -960,7 +965,7 @@
                         <div class="password-input-wrapper">
                         <input type="password" id="password" required>
                             <button type="button" class="password-toggle" onclick="togglePasswordVisibility()" title="Show/Hide Password">
-                                <span id="passwordToggleIcon">👁️</span>
+                                <span id="passwordToggleIcon">Show</span>
                             </button>
                         </div>
                     </div>
@@ -2039,10 +2044,10 @@
             
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';
-                toggleIcon.textContent = '🙈';
+                toggleIcon.textContent = 'Hide';
             } else {
                 passwordInput.type = 'password';
-                toggleIcon.textContent = '👁️';
+                toggleIcon.textContent = 'Show';
             }
         }
         
