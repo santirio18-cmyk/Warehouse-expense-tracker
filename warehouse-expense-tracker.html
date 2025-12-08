@@ -2012,6 +2012,20 @@
         window.alert = customAlert;
         window.confirm = customConfirm;
         
+        // Password visibility toggle
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById('password');
+            const toggleIcon = document.getElementById('passwordToggleIcon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.textContent = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.textContent = '👁️';
+            }
+        }
+        
         // Helper function to check if user has access to a warehouse
         function hasWarehouseAccess(user, warehouse) {
             if (!user.warehouse || user.warehouse === '') {
