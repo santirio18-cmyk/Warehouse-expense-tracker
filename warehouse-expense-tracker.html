@@ -10,6 +10,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     
+    <!-- EmailJS SDK -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -1437,6 +1440,12 @@
                                 <input type="text" id="newName" required placeholder="Enter full name">
                             </div>
                             <div class="form-group">
+                                <label for="newEmail">Email Address <span style="color: red;">*</span></label>
+                                <input type="email" id="newEmail" required placeholder="Enter email address">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
                                 <label for="newEmployeeCode">Employee Code</label>
                                 <input type="text" id="newEmployeeCode" required placeholder="Enter employee code">
                             </div>
@@ -1534,6 +1543,28 @@
             console.log('ℹ️ Firebase not configured - using localStorage');
         }
         
+        // Initialize EmailJS
+        // IMPORTANT: Replace with your EmailJS Public Key after setup
+        const EMAILJS_PUBLIC_KEY = 'YOUR_EMAILJS_PUBLIC_KEY'; // Get from https://dashboard.emailjs.com/admin/integration
+        const EMAILJS_SERVICE_ID = 'YOUR_SERVICE_ID'; // Get from https://dashboard.emailjs.com/admin
+        const EMAILJS_TEMPLATE_SUBMIT = 'YOUR_TEMPLATE_ID_SUBMIT'; // Template for expense submission
+        const EMAILJS_TEMPLATE_APPROVE = 'YOUR_TEMPLATE_ID_APPROVE'; // Template for approval
+        const EMAILJS_TEMPLATE_REJECT = 'YOUR_TEMPLATE_ID_REJECT'; // Template for rejection
+        
+        let useEmailJS = false;
+        if (EMAILJS_PUBLIC_KEY && EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY') {
+            try {
+                emailjs.init(EMAILJS_PUBLIC_KEY);
+                useEmailJS = true;
+                console.log('✅ EmailJS initialized successfully');
+            } catch (error) {
+                console.error('❌ EmailJS initialization error:', error);
+                useEmailJS = false;
+            }
+        } else {
+            console.log('ℹ️ EmailJS not configured - email notifications disabled');
+        }
+        
         // ============================================
         // DATA SERVICE FUNCTIONS (Firebase or localStorage)
         // ============================================
@@ -1578,14 +1609,14 @@
                 });
                 
                 if (!cleanedUsers['admin']) {
-                    cleanedUsers['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
+                    cleanedUsers['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin', email: '' };
                 }
                 
                 localStorage.setItem('warehouseUsers', JSON.stringify(cleanedUsers));
                 return cleanedUsers;
             } else {
                 const defaultUsers = {
-                    'admin': { password: 'admin123', role: 'master', name: 'Master Admin' }
+                    'admin': { password: 'admin123', role: 'master', name: 'Master Admin', email: '' }
                 };
                 localStorage.setItem('warehouseUsers', JSON.stringify(defaultUsers));
                 return defaultUsers;
@@ -2417,6 +2448,9 @@
                 expenses.push(expense);
                 await saveExpense(expense);
                 
+                // Send email notification to submitter and approvers
+                await sendExpenseSubmissionEmail(expense);
+                
                 // Reload expenses from Firebase to ensure invoice file is properly structured
                 if (useFirebase && db) {
                     expenses = await getExpenses();
@@ -3163,6 +3197,7 @@
                 <div class="user-card">
                     <h4>${user.name}</h4>
                     <p><strong>Username:</strong> ${username}</p>
+                    <p><strong>Email:</strong> ${user.email || 'N/A'}</p>
                     <p><strong>Employee Code:</strong> ${user.employeeCode || 'N/A'}</p>
                     <p><strong>Role:</strong> <span class="user-role ${user.role}">${user.role.toUpperCase()}</span></p>
                     <p><strong>Warehouse:</strong> ${user.warehouse && user.warehouse !== '' ? (user.warehouse.includes(',') ? user.warehouse.split(',').join(', ') : user.warehouse) : 'All Warehouses'}</p>
@@ -3197,10 +3232,13 @@
                 return;
             }
             
+            const email = document.getElementById('newEmail').value;
+            
             users[username] = {
                 password: password,
                 role: role,
                 name: name,
+                email: email,
                 employeeCode: employeeCode,
                 warehouse: warehouse // Store as comma-separated string or empty for "all"
             };
@@ -3409,6 +3447,10 @@
                     expense.approvedBy = currentUser;
                     expense.approvedAt = new Date().toISOString();
                     await saveExpense(expense);
+                    
+                    // Send approval email notification
+                    await sendApprovalEmail(expense, 'approved');
+                    
                     displayApprovals();
                     displayExpenses();
                     updateSummary();
