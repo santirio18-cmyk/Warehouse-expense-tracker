@@ -154,6 +154,32 @@
             transition: all 0.3s ease;
             background: #f8f9fa;
         }
+        
+        .password-input-wrapper {
+            position: relative;
+        }
+        
+        .password-toggle {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            color: #666;
+            padding: 5px;
+            z-index: 10;
+        }
+        
+        .password-toggle:hover {
+            color: var(--mytvs-orange);
+        }
+        
+        .password-input-wrapper input {
+            padding-right: 45px;
+        }
 
         input:focus, select:focus, textarea:focus {
             outline: none;
@@ -903,7 +929,7 @@
                         <span class="my">my</span><span class="tvs">TVS</span>
                     </div>
                 </div>
-                <h2>🔐 Login to Expense Tracker</h2>
+                <h2>Login to Expense Tracker</h2>
                 <form id="loginForm">
                     <div class="form-group">
                         <label for="username">Username:</label>
@@ -911,7 +937,12 @@
                     </div>
                     <div class="form-group">
                         <label for="password">Password:</label>
-                        <input type="password" id="password" required>
+                        <div class="password-input-wrapper">
+                            <input type="password" id="password" required>
+                            <button type="button" class="password-toggle" onclick="togglePasswordVisibility()" title="Show/Hide Password">
+                                <span id="passwordToggleIcon">👁️</span>
+                            </button>
+                        </div>
                     </div>
                     <button type="submit" class="btn">Login</button>
                 </form>
