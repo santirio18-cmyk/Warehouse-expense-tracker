@@ -246,7 +246,8 @@
             border-radius: 10px;
             cursor: pointer;
             transition: all 0.3s ease;
-            font-weight: 500;
+            font-weight: 600;
+            font-size: 18px;
         }
 
         .nav-tab.active {
@@ -973,6 +974,16 @@
                 <button onclick="logout()" class="btn btn-danger" style="width: auto; padding: 8px 16px;">Logout</button>
             </div>
 
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="showTab('add')">➕ Add Expense</button>
+                <button class="nav-tab" onclick="showTab('list')">📋 Expense List</button>
+                <button class="nav-tab" onclick="showTab('summary')">📊 Summary</button>
+                <button class="nav-tab" onclick="showTab('budget')">💰 Budget</button>
+                <button class="nav-tab" onclick="showTab('approvals')" id="approvalsTab" style="display: none;">✅ Approvals</button>
+                <button class="nav-tab" onclick="showTab('download')">📥 Download</button>
+                <button class="nav-tab" onclick="showTab('users')" id="usersTab" style="display: none;">👥 Users</button>
+            </div>
+
             <!-- Warehouse Selector for Master Users -->
             <div id="warehouseSelector" class="warehouse-selector" style="display: none;">
                 <h3>Select Warehouse to View:</h3>
@@ -1007,16 +1018,6 @@
                     <option value="warehouse_27">Warehouse 27</option>
                     <option value="warehouse_28">Warehouse 28</option>
                 </select>
-            </div>
-
-            <div class="nav-tabs">
-                <button class="nav-tab active" onclick="showTab('add')">➕ Add Expense</button>
-                <button class="nav-tab" onclick="showTab('list')">📋 Expense List</button>
-                <button class="nav-tab" onclick="showTab('summary')">📊 Summary</button>
-                <button class="nav-tab" onclick="showTab('budget')">💰 Budget</button>
-                <button class="nav-tab" onclick="showTab('approvals')" id="approvalsTab" style="display: none;">✅ Approvals</button>
-                <button class="nav-tab" onclick="showTab('download')">📥 Download</button>
-                <button class="nav-tab" onclick="showTab('users')" id="usersTab" style="display: none;">👥 Users</button>
             </div>
 
             <!-- Add Expense Tab -->
