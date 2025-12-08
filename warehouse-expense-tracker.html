@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>myTVS SCM Expense Management System</title>
+    <title>SCM Petty Cash Expense Management System</title>
     <!-- Updated: Removed demo user info from login -->
     
     <!-- Firebase SDK -->
@@ -930,8 +930,8 @@
                         <span class="my">my</span><span class="tvs">TVS</span>
                     </div>
                 </div>
-                <h1>SCM Expense Management System</h1>
-                <p>Multi-User Expense Management System</p>
+                <h1>SCM Petty Cash Expense Management System</h1>
+                <p>Multi-User Petty Cash Expense Management System</p>
             </div>
 
             <div class="user-info">
@@ -1926,7 +1926,7 @@
                 const body = document.getElementById('customModalMessage');
                 const footer = document.getElementById('customModalFooter');
                 
-                title.textContent = 'myTVS Expenses Management';
+                title.textContent = 'SCM Petty Cash Expense Management System';
                 body.textContent = message;
                 footer.innerHTML = '<button class="custom-modal-btn custom-modal-btn-primary" onclick="closeCustomModal(); window.customModalResolve(true);">OK</button>';
                 
@@ -1951,7 +1951,7 @@
                 const body = document.getElementById('customModalMessage');
                 const footer = document.getElementById('customModalFooter');
                 
-                title.textContent = 'myTVS Expenses Management';
+                title.textContent = 'SCM Petty Cash Expense Management System';
                 body.textContent = message;
                 footer.innerHTML = `
                     <button class="custom-modal-btn custom-modal-btn-secondary" onclick="closeCustomModal(); window.customModalResolve(false);">Cancel</button>
@@ -2744,7 +2744,7 @@
                 await saveBudget(warehouse, month, category, amount);
             }
             
-            await customAlert('✅ Budgets saved successfully!');
+            alert('✅ Budgets saved successfully!');
             document.getElementById('budgetPreview').style.display = 'none';
             uploadedBudgetData = {};
             loadBudgetVisualization();
@@ -3002,7 +3002,7 @@
             reader.readAsText(file);
         }
         
-        async function showBudgetPreview() {
+        function showBudgetPreview() {
             const previewDiv = document.getElementById('budgetPreview');
             const previewListDiv = document.getElementById('budgetPreviewList');
             
