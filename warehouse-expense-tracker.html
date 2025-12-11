@@ -10,8 +10,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     
-    <!-- EmailJS SDK -->
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <!-- Gmail Email Server - No external SDK needed, uses fetch API -->
     
     <style>
         * {
@@ -584,6 +583,11 @@
             color: #000;
         }
 
+        .approval-status.first_approved {
+            background: #17a2b8;
+            color: white;
+        }
+
         .approval-status.approved {
             background: #28a745;
             color: white;
@@ -1046,7 +1050,6 @@
             <div id="warehouseSelector" class="warehouse-selector" style="display: none;">
                 <h3>Select Warehouse to View:</h3>
                 <select id="warehouseSelect" onchange="switchWarehouse()">
-                    <option value="all">All Warehouses</option>
                     <option value="warehouse_1">Warehouse 1</option>
                     <option value="warehouse_2">Warehouse 2</option>
                     <option value="warehouse_3">Warehouse 3</option>
@@ -1556,53 +1559,63 @@
         }
         
         // ============================================
-        // EMAILJS CONFIGURATION
+        // GMAIL EMAIL SERVER CONFIGURATION
         // ============================================
-        // EmailJS Public Key - Replace with your EmailJS public key
-        // Get it from: https://dashboard.emailjs.com/admin/integration
-        const EMAILJS_PUBLIC_KEY = 'YOUR_EMAILJS_PUBLIC_KEY'; // Replace with your EmailJS public key
-        const EMAILJS_SERVICE_ID = 'YOUR_SERVICE_ID'; // Replace with your EmailJS service ID
-        const EMAILJS_TEMPLATE_ID_USER = 'YOUR_TEMPLATE_ID_USER'; // Template for user creation
-        const EMAILJS_TEMPLATE_ID_EXPENSE = 'YOUR_TEMPLATE_ID_EXPENSE'; // Template for expense submission
-        const EMAILJS_TEMPLATE_ID_APPROVAL = 'YOUR_TEMPLATE_ID_APPROVAL'; // Template for approval/rejection
+        // Replace with your email server URL
+        // Local development: http://localhost:3000
+        // Production: https://your-server-url.com (Railway, Render, Heroku, etc.)
+        const EMAIL_SERVER_URL = 'http://localhost:3000'; // Change this to your server URL
         
-        // Initialize EmailJS (only if public key is provided)
-        let emailjsInitialized = false;
-        if (EMAILJS_PUBLIC_KEY && EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY') {
-            try {
-                emailjs.init(EMAILJS_PUBLIC_KEY);
-                emailjsInitialized = true;
-                console.log('✅ EmailJS initialized successfully');
-            } catch (error) {
-                console.error('❌ EmailJS initialization error:', error);
-                emailjsInitialized = false;
-            }
+        let emailServerConfigured = false;
+        if (EMAIL_SERVER_URL && EMAIL_SERVER_URL !== 'YOUR_SERVER_URL') {
+            emailServerConfigured = true;
+            console.log('✅ Gmail email server configured:', EMAIL_SERVER_URL);
         } else {
-            console.log('ℹ️ EmailJS not configured - email notifications will be disabled');
+            console.log('ℹ️ Email server not configured - email notifications will be disabled');
+            console.log('ℹ️ To enable: Update EMAIL_SERVER_URL and start email-server.js');
         }
+        
+        // ============================================
+        // 2ND LEVEL APPROVAL CONFIGURATION
+        // ============================================
+        // Set the username of the 2nd level approver (only 1 ID)
+        // This user will be the final approver for all transactions
+        const SECOND_LEVEL_APPROVER_ID = 'admin'; // Change this to the username of your 2nd level approver
+        
+        // Check if 2nd level approval is enabled
+        const ENABLE_2ND_LEVEL_APPROVAL = true; // Set to false to disable 2nd level approval
         
         // ============================================
         // EMAIL SENDING FUNCTIONS
         // ============================================
         
         async function sendUserCreationEmail(userEmail, userName, username, password, role) {
-            if (!emailjsInitialized) {
-                console.log('ℹ️ EmailJS not configured - skipping email notification');
+            if (!emailServerConfigured) {
+                console.log('ℹ️ Email server not configured - skipping email notification');
                 return;
             }
             
             try {
-                const templateParams = {
-                    to_email: userEmail,
-                    user_name: userName,
-                    username: username,
-                    password: password,
-                    role: role,
-                    app_name: 'SCM Petty Cash Expense Management System'
-                };
+                const response = await fetch(`${EMAIL_SERVER_URL}/api/send-user-email`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        to_email: userEmail,
+                        user_name: userName,
+                        username: username,
+                        password: password,
+                        role: role
+                    })
+                });
                 
-                await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID_USER, templateParams);
-                console.log('✅ User creation email sent successfully');
+                const result = await response.json();
+                if (result.success) {
+                    console.log('✅ User creation email sent successfully');
+                } else {
+                    throw new Error(result.error || 'Failed to send email');
+                }
             } catch (error) {
                 console.error('❌ Error sending user creation email:', error);
                 // Don't throw error - email failure shouldn't block user creation
@@ -1610,8 +1623,8 @@
         }
         
         async function sendExpenseSubmissionEmail(expense, userEmail, userName) {
-            if (!emailjsInitialized) {
-                console.log('ℹ️ EmailJS not configured - skipping email notification');
+            if (!emailServerConfigured) {
+                console.log('ℹ️ Email server not configured - skipping email notification');
                 return;
             }
             
@@ -1627,21 +1640,30 @@
                     return;
                 }
                 
-                const templateParams = {
-                    to_email: approvers.join(','), // Send to all approvers
-                    submitter_name: userName,
-                    submitter_email: userEmail,
-                    expense_amount: `₹${expense.amount.toFixed(2)}`,
-                    expense_category: expense.category,
-                    expense_vendor: expense.vendorName || 'N/A',
-                    expense_warehouse: expense.warehouse,
-                    expense_date: expense.date,
-                    expense_invoice: expense.invoiceNumber || 'N/A',
-                    app_name: 'SCM Petty Cash Expense Management System'
-                };
+                const response = await fetch(`${EMAIL_SERVER_URL}/api/send-expense-submission-email`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        to_emails: approvers,
+                        submitter_name: userName,
+                        submitter_email: userEmail,
+                        expense_amount: expense.amount.toFixed(2),
+                        expense_category: expense.category,
+                        expense_vendor: expense.vendorName || 'N/A',
+                        expense_warehouse: expense.warehouse,
+                        expense_date: expense.date,
+                        expense_invoice: expense.invoiceNumber || 'N/A'
+                    })
+                });
                 
-                await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID_EXPENSE, templateParams);
-                console.log('✅ Expense submission email sent successfully');
+                const result = await response.json();
+                if (result.success) {
+                    console.log('✅ Expense submission email sent successfully');
+                } else {
+                    throw new Error(result.error || 'Failed to send email');
+                }
             } catch (error) {
                 console.error('❌ Error sending expense submission email:', error);
                 // Don't throw error - email failure shouldn't block expense submission
@@ -1649,8 +1671,8 @@
         }
         
         async function sendApprovalEmail(expense, action, approverName) {
-            if (!emailjsInitialized) {
-                console.log('ℹ️ EmailJS not configured - skipping email notification');
+            if (!emailServerConfigured) {
+                console.log('ℹ️ Email server not configured - skipping email notification');
                 return;
             }
             
@@ -1662,22 +1684,38 @@
                     return;
                 }
                 
-                const templateParams = {
-                    to_email: submitter.email,
-                    submitter_name: submitter.name,
-                    approver_name: approverName,
-                    action: action, // 'approved' or 'rejected'
-                    expense_amount: `₹${expense.amount.toFixed(2)}`,
-                    expense_category: expense.category,
-                    expense_vendor: expense.vendorName || 'N/A',
-                    expense_warehouse: expense.warehouse,
-                    expense_date: expense.date,
-                    expense_invoice: expense.invoiceNumber || 'N/A',
-                    app_name: 'SCM Petty Cash Expense Management System'
-                };
+                // Handle first_approved action
+                let emailAction = action;
+                if (action === 'first_approved') {
+                    emailAction = 'first_approved'; // Special handling for first approval
+                }
                 
-                await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID_APPROVAL, templateParams);
-                console.log(`✅ ${action} email sent successfully`);
+                const response = await fetch(`${EMAIL_SERVER_URL}/api/send-approval-email`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        to_email: submitter.email,
+                        submitter_name: submitter.name,
+                        approver_name: approverName,
+                        action: emailAction, // 'approved', 'rejected', or 'first_approved'
+                        expense_amount: expense.amount.toFixed(2),
+                        expense_category: expense.category,
+                        expense_vendor: expense.vendorName || 'N/A',
+                        expense_warehouse: expense.warehouse,
+                        expense_date: expense.date,
+                        expense_invoice: expense.invoiceNumber || 'N/A',
+                        second_level_approver: ENABLE_2ND_LEVEL_APPROVAL ? (users[SECOND_LEVEL_APPROVER_ID]?.name || SECOND_LEVEL_APPROVER_ID) : null
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    console.log(`✅ ${action} email sent successfully`);
+                } else {
+                    throw new Error(result.error || 'Failed to send email');
+                }
             } catch (error) {
                 console.error(`❌ Error sending ${action} email:`, error);
                 // Don't throw error - email failure shouldn't block approval/rejection
@@ -2300,19 +2338,40 @@
                     // Reload users to ensure cleanup is applied
                     users = await getUsers();
                     loadUsers();
+                    // Remove 'all' option if it exists and set default to warehouse_1
+                    const warehouseSelect = document.getElementById('warehouseSelect');
+                    const allOption = warehouseSelect.querySelector('option[value="all"]');
+                    if (allOption) {
+                        allOption.remove();
+                    }
+                    if (!warehouseSelect.value || warehouseSelect.value === 'all') {
+                        warehouseSelect.value = 'warehouse_1';
+                        currentWarehouse = 'warehouse_1';
+                    }
                 } else if (users[username].role === 'approver') {
                     // Approver: All access except user creation
                     document.getElementById('warehouseSelector').style.display = 'block';
                     document.getElementById('usersTab').style.display = 'none';
                     document.getElementById('approvalsTab').style.display = 'block';
-                    // Set warehouse selector to 'all' if approver has multiple or all warehouses
+                    // Set warehouse selector to first warehouse if approver has multiple or all warehouses
                     if (!users[username].warehouse || users[username].warehouse === '' || users[username].warehouse.includes(',')) {
-                        document.getElementById('warehouseSelect').value = 'all';
-                        currentWarehouse = 'all';
+                        const userWarehouses = users[username].warehouse ? users[username].warehouse.split(',') : ['warehouse_1'];
+                        document.getElementById('warehouseSelect').value = userWarehouses[0];
+                        currentWarehouse = userWarehouses[0];
                 } else {
                         // Single warehouse assignment
                         document.getElementById('warehouseSelect').value = users[username].warehouse;
                         currentWarehouse = users[username].warehouse;
+                    }
+                    // Remove 'all' option if it exists
+                    const warehouseSelect = document.getElementById('warehouseSelect');
+                    const allOption = warehouseSelect.querySelector('option[value="all"]');
+                    if (allOption) {
+                        allOption.remove();
+                    }
+                    if (!warehouseSelect.value || warehouseSelect.value === 'all') {
+                        warehouseSelect.value = 'warehouse_1';
+                        currentWarehouse = 'warehouse_1';
                     }
                 } else {
                     // Warehouse: Entry only
@@ -2351,8 +2410,13 @@
 
         // Switch warehouse (for master users)
         function switchWarehouse() {
-            currentWarehouse = document.getElementById('warehouseSelect').value;
-            if (currentWarehouse === 'all') currentWarehouse = null;
+            const warehouseSelect = document.getElementById('warehouseSelect');
+            currentWarehouse = warehouseSelect.value;
+            // Safety check: if somehow 'all' is selected, reset to first warehouse
+            if (currentWarehouse === 'all' || !currentWarehouse) {
+                currentWarehouse = 'warehouse_1';
+                warehouseSelect.value = 'warehouse_1';
+            }
             displayExpenses();
             updateSummary();
         }
@@ -2690,7 +2754,7 @@
                         <div>
                             <span class="expense-category">${expense.category}</span>
                             <span class="warehouse-badge">${expense.warehouse}</span>
-                            <span class="approval-status ${expense.status}">${expense.status.toUpperCase()}</span>
+                            <span class="approval-status ${expense.status}">${expense.status === 'first_approved' ? 'FIRST APPROVED' : expense.status.toUpperCase()}</span>
                         </div>
                         <span class="expense-amount">₹${expense.amount.toFixed(2)}</span>
                     </div>
@@ -2699,7 +2763,8 @@
                         ${expense.vendorName ? `<br>🏪 Vendor: <strong>${expense.vendorName}</strong>` : ''}
                         ${expense.paymentMode ? `<br>💳 Payment: <strong>${expense.paymentMode}</strong>` : ''}
                         ${expense.invoiceNumber ? `<br>🧾 Invoice: <strong>${expense.invoiceNumber}</strong>` : ''}
-                        ${expense.approvedBy ? `<br>✅ Approved by: <strong>${users[expense.approvedBy]?.name || 'Approver'}</strong>` : ''}
+                        ${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedBy ? `<br>✅ First Approved by: <strong>${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy}</strong>${expense.firstApprovedAt ? ` on ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}` : ''}
+                        ${expense.approvedBy ? `<br>✅ Final Approved by: <strong>${users[expense.approvedBy]?.name || 'Approver'}</strong>${expense.approvedAt ? ` on ${new Date(expense.approvedAt).toLocaleString()}` : ''}` : ''}
                     </div>
                     ${expense.description ? `<div class="expense-description">${expense.description}</div>` : ''}
                     ${expense.invoiceFile ? `
@@ -3432,34 +3497,47 @@
         
         function displayApprovals() {
             const approvalsList = document.getElementById('approvalsList');
-            let pendingExpenses = expenses.filter(expense => expense.status === 'pending');
+            
+            // Determine which expenses to show based on user role and 2nd level approval
+            let expensesToShow = [];
+            
+            if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
+                // 2nd level approver sees expenses that are first_approved
+                expensesToShow = expenses.filter(expense => expense.status === 'first_approved');
+            } else {
+                // First level approvers see expenses that are pending
+                expensesToShow = expenses.filter(expense => expense.status === 'pending');
+            }
             
             // Filter by warehouse based on user role
             if (users[currentUser].role === 'approver' && users[currentUser].warehouse && users[currentUser].warehouse !== '') {
                 // Approver with warehouse mapping: only see their assigned warehouses
                 const userWarehouses = users[currentUser].warehouse.split(',');
-                pendingExpenses = pendingExpenses.filter(expense => userWarehouses.includes(expense.warehouse));
+                expensesToShow = expensesToShow.filter(expense => userWarehouses.includes(expense.warehouse));
             } else if (currentApprovalFilter !== 'all') {
                 // Filter by warehouse selector
                 if (users[currentUser].role === 'approver' && !hasWarehouseAccess(users[currentUser], currentApprovalFilter)) {
-                    pendingExpenses = [];
+                    expensesToShow = [];
                 } else {
-                pendingExpenses = pendingExpenses.filter(expense => expense.warehouse === currentApprovalFilter);
+                    expensesToShow = expensesToShow.filter(expense => expense.warehouse === currentApprovalFilter);
                 }
             }
             
-            if (pendingExpenses.length === 0) {
+            if (expensesToShow.length === 0) {
+                const message = ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID
+                    ? 'No expenses pending final approval'
+                    : 'No pending approvals';
                 approvalsList.innerHTML = `
                     <div class="empty-state">
                         <div style="font-size: 4rem; margin-bottom: 20px;">✅</div>
-                        <h3>No pending approvals</h3>
+                        <h3>${message}</h3>
                         <p>All expenses have been reviewed!</p>
                     </div>
                 `;
                 return;
             }
             
-            approvalsList.innerHTML = pendingExpenses.map(expense => {
+            approvalsList.innerHTML = expensesToShow.map(expense => {
                 // Get the month from expense date (YYYY-MM format)
                 const expenseMonth = expense.date.substring(0, 7);
                 const budgetInfo = getRemainingBudget(expense.warehouse, expense.category, expenseMonth);
@@ -3508,7 +3586,7 @@
                         <div>
                             <span class="expense-category">${expense.category}</span>
                             <span class="warehouse-badge">${expense.warehouse}</span>
-                            <span class="approval-status ${expense.status}">${expense.status.toUpperCase()}</span>
+                            <span class="approval-status ${expense.status}">${expense.status === 'first_approved' ? 'FIRST APPROVED' : expense.status.toUpperCase()}</span>
                         </div>
                         <span class="expense-amount">₹${expense.amount.toFixed(2)}</span>
                     </div>
@@ -3518,6 +3596,7 @@
                         ${expense.paymentMode ? `<br>💳 Payment: <strong>${expense.paymentMode}</strong>` : ''}
                         ${expense.invoiceNumber ? `<br>🧾 Invoice: <strong>${expense.invoiceNumber}</strong>` : ''}
                         <br>👤 Created by: ${users[expense.createdBy]?.name || expense.createdBy}
+                        ${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedBy ? `<br>✅ First Approved by: ${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy}${expense.firstApprovedAt ? ` on ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}` : ''}
                     </div>
                     ${expense.description ? `<div class="expense-description">${expense.description}</div>` : ''}
                     ${expense.invoiceFile ? `
@@ -3537,9 +3616,26 @@
                         </div>
                     ` : ''}
                     ${budgetDisplay}
+                    ${ENABLE_2ND_LEVEL_APPROVAL && expense.status === 'first_approved' ? `
+                        <div style="background: #e3f2fd; padding: 10px; border-radius: 6px; margin-top: 10px; border-left: 3px solid #2196f3;">
+                            <strong style="color: #1976d2;">📋 First Level Approved</strong>
+                            <div style="font-size: 12px; color: #555; margin-top: 4px;">
+                                Approved by: ${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy || 'N/A'}
+                                ${expense.firstApprovedAt ? ` on ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}
+                            </div>
+                        </div>
+                    ` : ''}
                     <div class="approval-actions">
-                        <button class="approval-btn approve-btn" onclick="approveExpense('${expense.id}')">✅ Approve</button>
-                        <button class="approval-btn reject-btn" onclick="rejectExpense('${expense.id}')">❌ Reject</button>
+                        ${ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID && expense.status === 'first_approved' ? `
+                            <button class="approval-btn approve-btn" onclick="approveExpense('${expense.id}')">✅ Final Approve</button>
+                            <button class="approval-btn reject-btn" onclick="rejectExpense('${expense.id}')">❌ Reject</button>
+                        ` : ENABLE_2ND_LEVEL_APPROVAL && expense.status === 'pending' ? `
+                            <button class="approval-btn approve-btn" onclick="approveExpense('${expense.id}')">✅ First Approve</button>
+                            <button class="approval-btn reject-btn" onclick="rejectExpense('${expense.id}')">❌ Reject</button>
+                        ` : `
+                            <button class="approval-btn approve-btn" onclick="approveExpense('${expense.id}')">✅ Approve</button>
+                            <button class="approval-btn reject-btn" onclick="rejectExpense('${expense.id}')">❌ Reject</button>
+                        `}
                     </div>
                 </div>
             `;
@@ -3564,31 +3660,97 @@
                         return;
                     }
                     
+                    // Determine approval level
+                    const isSecondLevelApprover = ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID;
+                    const isFirstApproval = expense.status === 'pending';
+                    const isFinalApproval = expense.status === 'first_approved';
+                    
                     // Create a more informative confirmation message
-                    const confirmMessage = `Confirm Approval\n\n` +
-                        `Amount: ₹${expense.amount.toFixed(2)}\n` +
-                        `Vendor: ${expense.vendorName || 'N/A'}\n` +
-                        `Category: ${expense.category}\n` +
-                        `Warehouse: ${expense.warehouse}\n\n` +
-                        `Do you want to approve this expense?`;
+                    let confirmMessage = '';
+                    if (ENABLE_2ND_LEVEL_APPROVAL && isFinalApproval) {
+                        confirmMessage = `Confirm Final Approval\n\n` +
+                            `Amount: ₹${expense.amount.toFixed(2)}\n` +
+                            `Vendor: ${expense.vendorName || 'N/A'}\n` +
+                            `Category: ${expense.category}\n` +
+                            `Warehouse: ${expense.warehouse}\n` +
+                            `First Approved by: ${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy || 'N/A'}\n\n` +
+                            `Do you want to give final approval to this expense?`;
+                    } else if (ENABLE_2ND_LEVEL_APPROVAL && isFirstApproval) {
+                        confirmMessage = `Confirm First Level Approval\n\n` +
+                            `Amount: ₹${expense.amount.toFixed(2)}\n` +
+                            `Vendor: ${expense.vendorName || 'N/A'}\n` +
+                            `Category: ${expense.category}\n` +
+                            `Warehouse: ${expense.warehouse}\n\n` +
+                            `This expense will require final approval from ${users[SECOND_LEVEL_APPROVER_ID]?.name || SECOND_LEVEL_APPROVER_ID}.\n\n` +
+                            `Do you want to approve this expense?`;
+                    } else {
+                        confirmMessage = `Confirm Approval\n\n` +
+                            `Amount: ₹${expense.amount.toFixed(2)}\n` +
+                            `Vendor: ${expense.vendorName || 'N/A'}\n` +
+                            `Category: ${expense.category}\n` +
+                            `Warehouse: ${expense.warehouse}\n\n` +
+                            `Do you want to approve this expense?`;
+                    }
                     
             const confirmed = await customConfirm(confirmMessage);
             if (confirmed) {
-                    expense.status = 'approved';
-                    expense.approvedBy = currentUser;
-                    expense.approvedAt = new Date().toISOString();
-                    await saveExpense(expense);
-                    
-                    // Send approval email notification
-                    const approverData = users[currentUser];
-                    if (approverData && approverData.name) {
-                        await sendApprovalEmail(expense, 'approved', approverData.name);
+                    if (ENABLE_2ND_LEVEL_APPROVAL && isFinalApproval) {
+                        // Final approval - change status to approved
+                        expense.status = 'approved';
+                        expense.approvedBy = currentUser;
+                        expense.approvedAt = new Date().toISOString();
+                        await saveExpense(expense);
+                        
+                        // Send final approval email notification
+                        const approverData = users[currentUser];
+                        if (approverData && approverData.name) {
+                            await sendApprovalEmail(expense, 'approved', approverData.name);
+                        }
+                        
+                        showToast('success', 'Success', 'Expense finally approved successfully!');
+                    } else if (ENABLE_2ND_LEVEL_APPROVAL && isFirstApproval) {
+                        // First level approval - change status to first_approved
+                        expense.status = 'first_approved';
+                        expense.firstApprovedBy = currentUser;
+                        expense.firstApprovedAt = new Date().toISOString();
+                        await saveExpense(expense);
+                        
+                        // Send notification to 2nd level approver
+                        const secondLevelApprover = users[SECOND_LEVEL_APPROVER_ID];
+                        if (secondLevelApprover && secondLevelApprover.email && emailServerConfigured) {
+                            try {
+                                await sendExpenseSubmissionEmail(expense, users[currentUser]?.email || '', users[currentUser]?.name || currentUser);
+                            } catch (error) {
+                                console.error('Error sending notification to 2nd level approver:', error);
+                            }
+                        }
+                        
+                        // Send notification to submitter about first approval
+                        const approverData = users[currentUser];
+                        if (approverData && approverData.name) {
+                            await sendApprovalEmail(expense, 'first_approved', approverData.name);
+                        }
+                        
+                        showToast('success', 'Success', 'Expense first level approved! Waiting for final approval.');
+                    } else {
+                        // Single level approval (2nd level disabled)
+                        expense.status = 'approved';
+                        expense.approvedBy = currentUser;
+                        expense.approvedAt = new Date().toISOString();
+                        await saveExpense(expense);
+                        
+                        // Send approval email notification
+                        const approverData = users[currentUser];
+                        if (approverData && approverData.name) {
+                            await sendApprovalEmail(expense, 'approved', approverData.name);
+                        }
+                        
+                        showToast('success', 'Success', 'Expense approved successfully!');
                     }
                     
                     displayApprovals();
                     displayExpenses();
                     updateSummary();
-                    showToast('success', 'Success', 'Expense approved successfully!');
                 }
             } catch (error) {
                 console.error('Error approving expense:', error);
@@ -3702,24 +3864,48 @@
         }
 
         function convertToCSV(expenses) {
-            const headers = ['Date', 'Time', 'Category', 'Amount', 'Vendor Name', 'Payment Mode', 'Invoice Number', 'Description', 'Warehouse', 'Created By', 'Status', 'Approved By', 'Approved At'];
+            const headers = ENABLE_2ND_LEVEL_APPROVAL 
+                ? ['Date', 'Time', 'Category', 'Amount', 'Vendor Name', 'Payment Mode', 'Invoice Number', 'Description', 'Warehouse', 'Created By', 'Status', 'First Approved By', 'First Approved At', 'Final Approved By', 'Final Approved At']
+                : ['Date', 'Time', 'Category', 'Amount', 'Vendor Name', 'Payment Mode', 'Invoice Number', 'Description', 'Warehouse', 'Created By', 'Status', 'Approved By', 'Approved At'];
             const csvContent = [
                 headers.join(','),
-                ...expenses.map(expense => [
-                    expense.date,
-                    expense.time,
-                    expense.category,
-                    expense.amount,
-                    expense.vendorName || '',
-                    expense.paymentMode || '',
-                    expense.invoiceNumber || '',
-                    `"${expense.description || ''}"`,
-                    expense.warehouse,
-                    users[expense.createdBy]?.name || expense.createdBy,
-                    expense.status || 'pending',
-                    expense.approvedBy ? (users[expense.approvedBy]?.name || 'Approver') : '',
-                    expense.approvedAt || ''
-                ].join(','))
+                ...expenses.map(expense => {
+                    if (ENABLE_2ND_LEVEL_APPROVAL) {
+                        return [
+                            expense.date,
+                            expense.time,
+                            expense.category,
+                            expense.amount,
+                            expense.vendorName || '',
+                            expense.paymentMode || '',
+                            expense.invoiceNumber || '',
+                            `"${expense.description || ''}"`,
+                            expense.warehouse,
+                            users[expense.createdBy]?.name || expense.createdBy,
+                            expense.status || 'pending',
+                            expense.firstApprovedBy ? (users[expense.firstApprovedBy]?.name || 'First Approver') : '',
+                            expense.firstApprovedAt || '',
+                            expense.approvedBy ? (users[expense.approvedBy]?.name || 'Approver') : '',
+                            expense.approvedAt || ''
+                        ].join(',');
+                    } else {
+                        return [
+                            expense.date,
+                            expense.time,
+                            expense.category,
+                            expense.amount,
+                            expense.vendorName || '',
+                            expense.paymentMode || '',
+                            expense.invoiceNumber || '',
+                            `"${expense.description || ''}"`,
+                            expense.warehouse,
+                            users[expense.createdBy]?.name || expense.createdBy,
+                            expense.status || 'pending',
+                            expense.approvedBy ? (users[expense.approvedBy]?.name || 'Approver') : '',
+                            expense.approvedAt || ''
+                        ].join(',');
+                    }
+                })
             ].join('\n');
             return csvContent;
         }
@@ -3749,8 +3935,10 @@ Description: ${expense.description || 'N/A'}
 Warehouse: ${expense.warehouse}
 Created By: ${users[expense.createdBy]?.name || expense.createdBy}
 Status: ${expense.status || 'pending'}
-${expense.approvedBy ? `Approved By: ${users[expense.approvedBy]?.name || 'Approver'}` : ''}
-${expense.approvedAt ? `Approved At: ${new Date(expense.approvedAt).toLocaleString()}` : ''}
+${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedBy ? `First Approved By: ${users[expense.firstApprovedBy]?.name || 'First Approver'}` : ''}
+${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedAt ? `First Approved At: ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}
+${expense.approvedBy ? `Final Approved By: ${users[expense.approvedBy]?.name || 'Approver'}` : ''}
+${expense.approvedAt ? `Final Approved At: ${new Date(expense.approvedAt).toLocaleString()}` : ''}
 ---`).join('')}
             `;
         }
