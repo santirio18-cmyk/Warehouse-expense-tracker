@@ -3973,7 +3973,7 @@
                             `Amount: ₹${expense.amount.toFixed(2)}\n` +
                             `Vendor: ${expense.vendorName || 'N/A'}\n` +
                             `Category: ${expense.category}\n` +
-                            `Warehouse: ${expense.warehouse}\n` +
+                            `Warehouse: ${getWarehouseName(expense.warehouse)}\n` +
                             `First Approved by: ${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy || 'N/A'}\n\n` +
                             `Do you want to give final approval to this expense?`;
                     } else if (ENABLE_2ND_LEVEL_APPROVAL && isFirstApproval) {
