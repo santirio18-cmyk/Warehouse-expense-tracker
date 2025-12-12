@@ -2441,10 +2441,26 @@
                 currentWarehouse = accessibleWarehouses.length > 0 ? accessibleWarehouses[0] : 'warehouse_1';
                 warehouseSelect.value = currentWarehouse;
             }
+            // Also update approval filter to match the warehouse selector
+            currentApprovalFilter = currentWarehouse;
+            // Update active state of approval filter buttons
+            document.querySelectorAll('#approvals .filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                const onclickAttr = btn.getAttribute('onclick');
+                if (onclickAttr) {
+                    const match = onclickAttr.match(/filterApprovals\('([^']+)'\)/);
+                    if (match && match[1] === currentWarehouse) {
+                        btn.classList.add('active');
+                    } else if (currentWarehouse && onclickAttr.includes("filterApprovals('all')")) {
+                        // If a specific warehouse is selected, deactivate 'all' button
+                    }
+                }
+            });
             // Use requestAnimationFrame for smooth updates
             requestAnimationFrame(() => {
             displayExpenses();
             updateSummary();
+            displayApprovals(); // Also refresh approvals to respect warehouse change
             });
         }
 
@@ -2804,7 +2820,7 @@
                             accessibleWarehouses.includes(expense.warehouse)
                         );
                     }
-                } else if (currentWarehouse && currentWarehouse !== 'all') {
+            } else if (currentWarehouse && currentWarehouse !== 'all') {
                     // Master with no restrictions: filter by selected warehouse - use strict string comparison
                     filteredExpenses = filteredExpenses.filter(expense => {
                         const expenseWarehouse = String(expense.warehouse || '').trim();
@@ -3069,7 +3085,7 @@
                             accessibleWarehouses.includes(expense.warehouse)
                         );
                     }
-                } else if (currentWarehouse && currentWarehouse !== 'all') {
+            } else if (currentWarehouse && currentWarehouse !== 'all') {
                     // Master with no restrictions: filter by selected warehouse - use strict string comparison
                     filteredExpenses = filteredExpenses.filter(expense => {
                         const expenseWarehouse = String(expense.warehouse || '').trim();
@@ -3691,17 +3707,24 @@
                     );
                 }
             } else if (currentApprovalFilter && currentApprovalFilter !== 'all') {
-                // Filter by warehouse selector (only if a specific warehouse is selected)
+                // Filter by approval filter button (only if a specific warehouse is selected)
                 if (users[currentUser].role === 'approver' && !hasWarehouseAccess(users[currentUser], currentApprovalFilter)) {
                     expensesToShow = [];
                 } else {
                     // Strict string comparison to ensure exact warehouse match (prevents warehouse_1 matching warehouse_11)
                     expensesToShow = expensesToShow.filter(expense => {
-                        const expenseWarehouse = String(expense.warehouse || '');
-                        const filterWarehouse = String(currentApprovalFilter || '');
+                        const expenseWarehouse = String(expense.warehouse || '').trim();
+                        const filterWarehouse = String(currentApprovalFilter || '').trim();
                         return expenseWarehouse === filterWarehouse;
                     });
                 }
+            } else if (currentWarehouse && currentWarehouse !== 'all') {
+                // If no approval filter is set but warehouse selector is set, use warehouse selector
+                expensesToShow = expensesToShow.filter(expense => {
+                    const expenseWarehouse = String(expense.warehouse || '').trim();
+                    const filterWarehouse = String(currentWarehouse || '').trim();
+                    return expenseWarehouse === filterWarehouse;
+                });
             } else if (users[currentUser].role === 'master' && users[currentUser].warehouse && users[currentUser].warehouse !== '') {
                 // Master with warehouse restrictions but 'all' filter: show only accessible warehouses
                 expensesToShow = expensesToShow.filter(expense => 
@@ -4076,7 +4099,7 @@
                             accessibleWarehouses.includes(expense.warehouse)
                         );
                     }
-                } else if (currentWarehouse && currentWarehouse !== 'all') {
+            } else if (currentWarehouse && currentWarehouse !== 'all') {
                     // Master with no restrictions: filter by selected warehouse - use strict string comparison
                     filteredExpenses = filteredExpenses.filter(expense => {
                         const expenseWarehouse = String(expense.warehouse || '').trim();
