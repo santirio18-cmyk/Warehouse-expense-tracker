@@ -1031,7 +1031,6 @@
             <div class="user-info">
                 <div>
                     <strong>Welcome, <span id="currentUser"></span></strong>
-                    <span class="user-role" id="userRole"></span>
                 </div>
                 <button onclick="logout()" class="btn btn-danger" style="width: auto; padding: 8px 16px;">Logout</button>
             </div>
@@ -2437,8 +2436,6 @@
                 document.getElementById('mainApp').style.display = 'block';
                 
                 document.getElementById('currentUser').textContent = users[username].name;
-                document.getElementById('userRole').textContent = users[username].role.toUpperCase();
-                document.getElementById('userRole').className = `user-role ${users[username].role}`;
                 
                 // Show features based on role
                 if (users[username].role === 'master') {
