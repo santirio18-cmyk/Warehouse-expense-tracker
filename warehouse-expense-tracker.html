@@ -2889,8 +2889,9 @@
                         ${expense.vendorName ? `<br>🏪 Vendor: <strong>${expense.vendorName}</strong>` : ''}
                         ${expense.paymentMode ? `<br>💳 Payment: <strong>${expense.paymentMode}</strong>` : ''}
                         ${expense.invoiceNumber ? `<br>🧾 Invoice: <strong>${expense.invoiceNumber}</strong>` : ''}
-                        ${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedBy ? `<br>✅ First Approved by: <strong>${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy}</strong>${expense.firstApprovedAt ? ` on ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}` : ''}
-                        ${expense.approvedBy ? `<br>✅ Final Approved by: <strong>${users[expense.approvedBy]?.name || 'Approver'}</strong>${expense.approvedAt ? ` on ${new Date(expense.approvedAt).toLocaleString()}` : ''}` : ''}
+                        ${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedBy && expense.status !== 'rejected' ? `<br>✅ First Approved by: <strong>${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy}</strong>${expense.firstApprovedAt ? ` on ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}` : ''}
+                        ${expense.approvedBy && expense.status === 'rejected' ? `<br>❌ Rejected by: <strong>${users[expense.approvedBy]?.name || 'Approver'}</strong>${expense.approvedAt ? ` on ${new Date(expense.approvedAt).toLocaleString()}` : ''}` : ''}
+                        ${expense.approvedBy && expense.status !== 'rejected' ? `<br>✅ Final Approved by: <strong>${users[expense.approvedBy]?.name || 'Approver'}</strong>${expense.approvedAt ? ` on ${new Date(expense.approvedAt).toLocaleString()}` : ''}` : ''}
                     </div>
                     ${expense.description ? `<div class="expense-description">${expense.description}</div>` : ''}
                     ${expense.invoiceFile ? `
@@ -4148,10 +4149,10 @@
                     expense.warehouse,
                             users[expense.createdBy]?.name || expense.createdBy,
                     expense.status || 'pending',
-                            expense.firstApprovedBy ? (users[expense.firstApprovedBy]?.name || 'First Approver') : '',
-                            expense.firstApprovedAt || '',
-                            expense.approvedBy ? (users[expense.approvedBy]?.name || 'Approver') : '',
-                    expense.approvedAt || ''
+                            expense.firstApprovedBy && expense.status !== 'rejected' ? (users[expense.firstApprovedBy]?.name || 'First Approver') : '',
+                            expense.firstApprovedAt && expense.status !== 'rejected' ? expense.firstApprovedAt : '',
+                            expense.approvedBy && expense.status === 'rejected' ? (users[expense.approvedBy]?.name || 'Approver') : (expense.approvedBy && expense.status !== 'rejected' ? (users[expense.approvedBy]?.name || 'Approver') : ''),
+                    expense.approvedAt && expense.status === 'rejected' ? expense.approvedAt : (expense.approvedAt && expense.status !== 'rejected' ? expense.approvedAt : '')
                         ].join(',');
                     } else {
                         return [
@@ -4200,10 +4201,12 @@ Description: ${expense.description || 'N/A'}
 Warehouse: ${expense.warehouse}
 Created By: ${users[expense.createdBy]?.name || expense.createdBy}
 Status: ${expense.status || 'pending'}
-${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedBy ? `First Approved By: ${users[expense.firstApprovedBy]?.name || 'First Approver'}` : ''}
-${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedAt ? `First Approved At: ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}
-${expense.approvedBy ? `Final Approved By: ${users[expense.approvedBy]?.name || 'Approver'}` : ''}
-${expense.approvedAt ? `Final Approved At: ${new Date(expense.approvedAt).toLocaleString()}` : ''}
+${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedBy && expense.status !== 'rejected' ? `First Approved By: ${users[expense.firstApprovedBy]?.name || 'First Approver'}` : ''}
+${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedAt && expense.status !== 'rejected' ? `First Approved At: ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}
+${expense.approvedBy && expense.status === 'rejected' ? `Rejected By: ${users[expense.approvedBy]?.name || 'Approver'}` : ''}
+${expense.approvedAt && expense.status === 'rejected' ? `Rejected At: ${new Date(expense.approvedAt).toLocaleString()}` : ''}
+${expense.approvedBy && expense.status !== 'rejected' ? `Final Approved By: ${users[expense.approvedBy]?.name || 'Approver'}` : ''}
+${expense.approvedAt && expense.status !== 'rejected' ? `Final Approved At: ${new Date(expense.approvedAt).toLocaleString()}` : ''}
 ---`).join('')}
             `;
         }
