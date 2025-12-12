@@ -3600,7 +3600,7 @@
                     <p><strong>Email:</strong> ${user.email || 'N/A'}</p>
                     <p><strong>Employee Code:</strong> ${user.employeeCode || 'N/A'}</p>
                     <p><strong>Role:</strong> <span class="user-role ${user.role}">${user.role.toUpperCase()}</span></p>
-                    <p><strong>Warehouse:</strong> ${user.warehouse && user.warehouse !== '' ? (user.warehouse.includes(',') ? user.warehouse.split(',').join(', ') : user.warehouse) : 'All Warehouses'}</p>
+                    <p><strong>Warehouse:</strong> ${user.warehouse && user.warehouse !== '' ? (user.warehouse.includes(',') ? user.warehouse.split(',').map(w => getWarehouseName(w.trim())).join(', ') : getWarehouseName(user.warehouse)) : 'All Warehouses'}</p>
                     <button onclick="deleteUser('${username}')" class="btn btn-danger" style="width: 100%; margin-top: 10px; padding: 8px;">🗑️ Delete User</button>
                 </div>
             `).join('');
