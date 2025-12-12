@@ -2208,6 +2208,10 @@
         
         // Helper function to check if user has access to a warehouse
         function hasWarehouseAccess(user, warehouse) {
+            // Second-level approver always has access to all warehouses
+            if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
+                return true;
+            }
             if (!user.warehouse || user.warehouse === '') {
                 return true; // Empty means all warehouses
             }
