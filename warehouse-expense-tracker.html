@@ -2927,7 +2927,6 @@
             // Render expenses (optimized for performance)
             expenseList.innerHTML = filteredExpenses.map(expense => `
                 <div class="expense-card">
-                    <button class="delete-btn" onclick="deleteExpense(${expense.id})" title="Delete">×</button>
                     <div class="expense-header">
                         <div>
                             <span class="expense-category">${expense.category}</span>
@@ -3061,14 +3060,8 @@
 
         // Delete expense
         async function deleteExpense(id) {
-            const confirmed = await customConfirm('Are you sure you want to delete this expense?');
-            if (confirmed) {
-                expenses = expenses.filter(expense => expense.id !== id);
-                await deleteExpenseFirebase(id);
-                await saveAllExpenses(expenses);
-                displayExpenses();
-                updateSummary();
-            }
+            // Delete functionality has been disabled - expenses cannot be deleted
+            await customAlert('❌ Delete functionality has been disabled. Expenses cannot be deleted.');
         }
 
         // Update summary with date filter
