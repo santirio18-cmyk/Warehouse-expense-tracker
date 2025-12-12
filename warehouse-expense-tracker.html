@@ -4277,7 +4277,7 @@ ${expense.paymentMode ? `Payment Mode: ${expense.paymentMode}` : ''}
 ${expense.invoiceNumber ? `Invoice: ${expense.invoiceNumber}` : ''}
 ${expense.invoiceFile ? `Invoice File: ${expense.invoiceFile.filename}` : ''}
 Description: ${expense.description || 'N/A'}
-Warehouse: ${expense.warehouse}
+Warehouse: ${getWarehouseName(expense.warehouse)}
 Created By: ${users[expense.createdBy]?.name || expense.createdBy}
 Status: ${expense.status || 'pending'}
 ${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedBy ? `First Approved By: ${users[expense.firstApprovedBy]?.name || 'First Approver'}` : ''}
