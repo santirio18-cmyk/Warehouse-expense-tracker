@@ -4022,7 +4022,11 @@
                 // Approver: filter by warehouse selector or warehouse mapping
                 if (currentWarehouse && currentWarehouse !== 'all') {
                     if (hasWarehouseAccess(users[currentUser], currentWarehouse)) {
-                        filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
+                        filteredExpenses = filteredExpenses.filter(expense => {
+                            const expenseWarehouse = String(expense.warehouse || '').trim();
+                            const filterWarehouse = String(currentWarehouse || '').trim();
+                            return expenseWarehouse === filterWarehouse;
+                        });
                     } else {
                         filteredExpenses = [];
                     }
@@ -4038,7 +4042,11 @@
                     // Master with warehouse restrictions: only show accessible warehouses
                     if (currentWarehouse && currentWarehouse !== 'all') {
                         if (hasWarehouseAccess(users[currentUser], currentWarehouse)) {
-                            filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
+                            filteredExpenses = filteredExpenses.filter(expense => {
+                                const expenseWarehouse = String(expense.warehouse || '').trim();
+                                const filterWarehouse = String(currentWarehouse || '').trim();
+                                return expenseWarehouse === filterWarehouse;
+                            });
                         } else {
                             filteredExpenses = [];
                         }
@@ -4049,8 +4057,12 @@
                         );
                     }
                 } else if (currentWarehouse && currentWarehouse !== 'all') {
-                    // Master with no restrictions: filter by selected warehouse
-                    filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
+                    // Master with no restrictions: filter by selected warehouse - use strict string comparison
+                    filteredExpenses = filteredExpenses.filter(expense => {
+                        const expenseWarehouse = String(expense.warehouse || '').trim();
+                        const filterWarehouse = String(currentWarehouse || '').trim();
+                        return expenseWarehouse === filterWarehouse;
+                    });
                 }
                 // If master has no restrictions and no filter, show all expenses
             }
