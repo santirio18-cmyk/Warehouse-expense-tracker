@@ -2487,6 +2487,21 @@
                 requestAnimationFrame(() => loadUsers());
             }
             if (tabName === 'approvals') {
+                // Sync approval filter with warehouse selector when switching to approvals tab
+                if (currentWarehouse && currentWarehouse !== 'all' && (!currentApprovalFilter || currentApprovalFilter === 'all')) {
+                    currentApprovalFilter = currentWarehouse;
+                    // Update active state of approval filter buttons
+                    document.querySelectorAll('#approvals .filter-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                        const onclickAttr = btn.getAttribute('onclick');
+                        if (onclickAttr) {
+                            const match = onclickAttr.match(/filterApprovals\('([^']+)'\)/);
+                            if (match && match[1] === currentWarehouse) {
+                                btn.classList.add('active');
+                            }
+                        }
+                    });
+                }
                 // Only reload if cache is stale (more than 5 seconds old)
                 const now = Date.now();
                 if (now - lastApprovalsLoad > APPROVALS_CACHE_TIME) {
@@ -2502,7 +2517,7 @@
                         requestAnimationFrame(() => displayApprovals());
                     })();
                 } else {
-                    // Use cached data
+                    // Use cached data, but refresh display to respect current filter
                     requestAnimationFrame(() => displayApprovals());
                 }
             }
