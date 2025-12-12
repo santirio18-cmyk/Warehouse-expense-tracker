@@ -3686,9 +3686,36 @@
                 }
                 // If 'all' is selected or no filter, show all warehouses (no additional filtering)
             } else if (users[currentUser].role === 'approver' && users[currentUser].warehouse && users[currentUser].warehouse !== '') {
-                // Approver with warehouse mapping: only see their assigned warehouses
-                const userWarehouses = users[currentUser].warehouse.split(',');
-                expensesToShow = expensesToShow.filter(expense => userWarehouses.includes(expense.warehouse));
+                // Approver with warehouse mapping: filter by approval filter or warehouse selector first
+                if (currentApprovalFilter && currentApprovalFilter !== 'all') {
+                    // Filter by approval filter button if set
+                    const userWarehouses = users[currentUser].warehouse.split(',');
+                    if (userWarehouses.includes(currentApprovalFilter)) {
+                        expensesToShow = expensesToShow.filter(expense => {
+                            const expenseWarehouse = String(expense.warehouse || '').trim();
+                            const filterWarehouse = String(currentApprovalFilter || '').trim();
+                            return expenseWarehouse === filterWarehouse;
+                        });
+                    } else {
+                        expensesToShow = [];
+                    }
+                } else if (currentWarehouse && currentWarehouse !== 'all') {
+                    // Filter by warehouse selector if approval filter is 'all'
+                    const userWarehouses = users[currentUser].warehouse.split(',');
+                    if (userWarehouses.includes(currentWarehouse)) {
+                        expensesToShow = expensesToShow.filter(expense => {
+                            const expenseWarehouse = String(expense.warehouse || '').trim();
+                            const filterWarehouse = String(currentWarehouse || '').trim();
+                            return expenseWarehouse === filterWarehouse;
+                        });
+                    } else {
+                        expensesToShow = [];
+                    }
+                } else {
+                    // Show all assigned warehouses if no filter is set
+                    const userWarehouses = users[currentUser].warehouse.split(',');
+                    expensesToShow = expensesToShow.filter(expense => userWarehouses.includes(expense.warehouse));
+                }
             } else if (users[currentUser].role === 'master' && users[currentUser].warehouse && users[currentUser].warehouse !== '') {
                 // Master with warehouse restrictions: only see accessible warehouses
                 if (currentApprovalFilter && currentApprovalFilter !== 'all') {
