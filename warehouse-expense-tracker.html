@@ -2214,6 +2214,69 @@
             const userWarehouses = user.warehouse.split(',');
             return userWarehouses.includes(warehouse);
         }
+        
+        // Get list of warehouses accessible to current user
+        function getUserAccessibleWarehouses() {
+            if (!currentUser || !users[currentUser]) {
+                return []; // No user logged in
+            }
+            const user = users[currentUser];
+            if (!user.warehouse || user.warehouse === '') {
+                // Empty means all warehouses - return all 28 warehouses
+                return Array.from({length: 28}, (_, i) => `warehouse_${i + 1}`);
+            }
+            // Return only assigned warehouses
+            return user.warehouse.split(',').map(w => w.trim()).filter(w => w);
+        }
+        
+        // Filter warehouse dropdown options to only show accessible warehouses
+        function filterWarehouseOptions(selectElementId) {
+            const selectElement = document.getElementById(selectElementId);
+            if (!selectElement) return;
+            
+            const accessibleWarehouses = getUserAccessibleWarehouses();
+            const allOptions = Array.from(selectElement.options);
+            
+            // Remove all options first
+            selectElement.innerHTML = '';
+            
+            // Add only accessible warehouses
+            allOptions.forEach(option => {
+                const warehouseValue = option.value;
+                // Keep 'all' option only if user has access to all warehouses
+                if (warehouseValue === 'all') {
+                    if (accessibleWarehouses.length === 28) {
+                        selectElement.appendChild(option);
+                    }
+                } else if (accessibleWarehouses.includes(warehouseValue) || accessibleWarehouses.length === 28) {
+                    selectElement.appendChild(option);
+                }
+            });
+        }
+        
+        // Filter approval filter buttons to only show accessible warehouses
+        function filterApprovalFilterButtons() {
+            const accessibleWarehouses = getUserAccessibleWarehouses();
+            const filterButtons = document.querySelectorAll('#approvals .filter-btn');
+            
+            filterButtons.forEach(button => {
+                const onclickAttr = button.getAttribute('onclick');
+                if (onclickAttr) {
+                    // Extract warehouse value from onclick (e.g., "filterApprovals('warehouse_1')")
+                    const match = onclickAttr.match(/filterApprovals\('([^']+)'\)/);
+                    if (match) {
+                        const warehouseValue = match[1];
+                        if (warehouseValue === 'all') {
+                            // Show 'all' only if user has access to all warehouses
+                            button.style.display = accessibleWarehouses.length === 28 ? '' : 'none';
+                        } else {
+                            // Show button only if warehouse is accessible
+                            button.style.display = accessibleWarehouses.includes(warehouseValue) || accessibleWarehouses.length === 28 ? '' : 'none';
+                        }
+                    }
+                }
+            });
+        }
 
         // Initialize
         document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
@@ -2283,40 +2346,45 @@
                     // Reload users to ensure cleanup is applied
                     users = await getUsers();
                     loadUsers();
-                    // Remove 'all' option if it exists and set default to warehouse_1
+                    // Filter warehouse options based on user's warehouse access
+                    filterWarehouseOptions('warehouseSelect');
+                    filterWarehouseOptions('budgetWarehouse');
+                    filterApprovalFilterButtons();
+                    // Remove 'all' option if it exists and set default to first accessible warehouse
                     const warehouseSelect = document.getElementById('warehouseSelect');
                     const allOption = warehouseSelect.querySelector('option[value="all"]');
                     if (allOption) {
                         allOption.remove();
                     }
-                    if (!warehouseSelect.value || warehouseSelect.value === 'all') {
-                        warehouseSelect.value = 'warehouse_1';
-                        currentWarehouse = 'warehouse_1';
+                    const accessibleWarehouses = getUserAccessibleWarehouses();
+                    if (accessibleWarehouses.length > 0 && (!warehouseSelect.value || warehouseSelect.value === 'all')) {
+                        warehouseSelect.value = accessibleWarehouses[0];
+                        currentWarehouse = accessibleWarehouses[0];
                     }
                 } else if (users[username].role === 'approver') {
                     // Approver: All access except user creation
                     document.getElementById('warehouseSelector').style.display = 'block';
                     document.getElementById('usersTab').style.display = 'none';
                     document.getElementById('approvalsTab').style.display = 'block';
-                    // Set warehouse selector to first warehouse if approver has multiple or all warehouses
-                    if (!users[username].warehouse || users[username].warehouse === '' || users[username].warehouse.includes(',')) {
-                        const userWarehouses = users[username].warehouse ? users[username].warehouse.split(',') : ['warehouse_1'];
-                        document.getElementById('warehouseSelect').value = userWarehouses[0];
-                        currentWarehouse = userWarehouses[0];
+                    // Filter warehouse options based on user's warehouse access
+                    filterWarehouseOptions('warehouseSelect');
+                    filterWarehouseOptions('budgetWarehouse');
+                    filterApprovalFilterButtons();
+                    // Set warehouse selector to first accessible warehouse
+                    const accessibleWarehouses = getUserAccessibleWarehouses();
+                    if (accessibleWarehouses.length > 0) {
+                        document.getElementById('warehouseSelect').value = accessibleWarehouses[0];
+                        currentWarehouse = accessibleWarehouses[0];
                 } else {
-                        // Single warehouse assignment
-                        document.getElementById('warehouseSelect').value = users[username].warehouse;
-                        currentWarehouse = users[username].warehouse;
+                        // Fallback if no warehouses assigned
+                        document.getElementById('warehouseSelect').value = 'warehouse_1';
+                        currentWarehouse = 'warehouse_1';
                     }
                     // Remove 'all' option if it exists
                     const warehouseSelect = document.getElementById('warehouseSelect');
                     const allOption = warehouseSelect.querySelector('option[value="all"]');
                     if (allOption) {
                         allOption.remove();
-                    }
-                    if (!warehouseSelect.value || warehouseSelect.value === 'all') {
-                        warehouseSelect.value = 'warehouse_1';
-                        currentWarehouse = 'warehouse_1';
                     }
                 } else {
                     // Warehouse: Entry only
@@ -2412,6 +2480,8 @@
                 }
             }
             if (tabName === 'budget') {
+                // Filter budget warehouse selector when switching to budget tab
+                filterWarehouseOptions('budgetWarehouse');
                 requestAnimationFrame(() => {
                 loadBudgetVisualization();
                 loadBudgetManagement();
@@ -2525,11 +2595,18 @@
                 // Determine the warehouse
                 // For warehouse users, use first assigned warehouse; for others use selector or default
                 let warehouse;
+                const accessibleWarehouses = getUserAccessibleWarehouses();
                 if (users[currentUser].role === 'warehouse') {
                     const userWarehouses = users[currentUser].warehouse ? users[currentUser].warehouse.split(',') : [];
                     warehouse = userWarehouses.length > 0 ? userWarehouses[0] : 'warehouse_1';
                 } else {
                     warehouse = currentWarehouse || 'warehouse_1';
+                }
+                
+                // Validate that user has access to the selected warehouse
+                if (!hasWarehouseAccess(users[currentUser], warehouse)) {
+                    showToast('error', 'Access Denied', 'You do not have access to submit expenses for this warehouse.');
+                    return;
                 }
                 
                 // Check for duplicate invoice number in the same warehouse
@@ -2666,6 +2743,9 @@
             
             let filteredExpenses = expenses;
             
+            // Get user's accessible warehouses
+            const accessibleWarehouses = getUserAccessibleWarehouses();
+            
             // Filter by warehouse based on user role
             if (users[currentUser].role === 'warehouse') {
                 // Warehouse users: only see their assigned warehouse expenses
@@ -2683,17 +2763,34 @@
                     } else {
                         filteredExpenses = []; // No access to selected warehouse
                     }
-                } else if (users[currentUser].warehouse && users[currentUser].warehouse !== '') {
-                    // Filter by approver's warehouse assignment
-                    const userWarehouses = users[currentUser].warehouse.split(',');
-                    filteredExpenses = filteredExpenses.filter(expense => userWarehouses.includes(expense.warehouse));
+                } else {
+                    // If no specific warehouse selected, show only accessible warehouses
+                    filteredExpenses = filteredExpenses.filter(expense => 
+                        accessibleWarehouses.includes(expense.warehouse)
+                    );
                 }
-                // If approver has no warehouse assignment (empty), show all
-            } else if (currentWarehouse && currentWarehouse !== 'all') {
-                // Master users can filter by specific warehouse
-                filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
+            } else if (users[currentUser].role === 'master') {
+                // Master users: respect warehouse restrictions if they have assigned warehouses
+                if (users[currentUser].warehouse && users[currentUser].warehouse !== '') {
+                    // Master with warehouse restrictions
+                    if (currentWarehouse && currentWarehouse !== 'all') {
+                        if (hasWarehouseAccess(users[currentUser], currentWarehouse)) {
+                            filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
+                        } else {
+                            filteredExpenses = [];
+                        }
+                    } else {
+                        // Show all accessible warehouses
+                        filteredExpenses = filteredExpenses.filter(expense => 
+                            accessibleWarehouses.includes(expense.warehouse)
+                        );
+                    }
+                } else if (currentWarehouse && currentWarehouse !== 'all') {
+                    // Master with no restrictions: filter by selected warehouse
+                    filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
+                }
+                // If master has no restrictions and no filter, show all expenses
             }
-            // If master/approver selects 'all' or no filter, show all expenses (or assigned warehouses)
             
             // Apply date filter
             const now = new Date();
@@ -2902,6 +2999,9 @@
                 filteredExpenses = filteredExpenses.filter(expense => expense.date <= toDate);
             }
             
+            // Get user's accessible warehouses
+            const accessibleWarehouses = getUserAccessibleWarehouses();
+            
             // Filter by warehouse based on user role
             if (users[currentUser].role === 'warehouse') {
                 // Warehouse users: only see their assigned warehouse approved expenses
@@ -2916,15 +3016,34 @@
                     } else {
                         filteredExpenses = [];
                     }
-                } else if (users[currentUser].warehouse && users[currentUser].warehouse !== '') {
-                    const userWarehouses = users[currentUser].warehouse.split(',');
-                    filteredExpenses = filteredExpenses.filter(expense => userWarehouses.includes(expense.warehouse));
+                } else {
+                    // If no specific warehouse selected, show only accessible warehouses
+                    filteredExpenses = filteredExpenses.filter(expense => 
+                        accessibleWarehouses.includes(expense.warehouse)
+                    );
                 }
-            } else if (currentWarehouse && currentWarehouse !== 'all') {
-                // Master users can filter by specific warehouse
-                filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
+            } else if (users[currentUser].role === 'master') {
+                // Master users: respect warehouse restrictions if they have assigned warehouses
+                if (users[currentUser].warehouse && users[currentUser].warehouse !== '') {
+                    // Master with warehouse restrictions
+                    if (currentWarehouse && currentWarehouse !== 'all') {
+                        if (hasWarehouseAccess(users[currentUser], currentWarehouse)) {
+                            filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
+                        } else {
+                            filteredExpenses = [];
+                        }
+                    } else {
+                        // Show all accessible warehouses
+                        filteredExpenses = filteredExpenses.filter(expense => 
+                            accessibleWarehouses.includes(expense.warehouse)
+                        );
+                    }
+                } else if (currentWarehouse && currentWarehouse !== 'all') {
+                    // Master with no restrictions: filter by selected warehouse
+                    filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
+                }
+                // If master has no restrictions and no filter, show all expenses
             }
-            // If master/approver selects 'all' or no filter, show all expenses (or assigned warehouses)
             
             const totalAmount = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
             const totalCount = filteredExpenses.length;
@@ -3500,11 +3619,32 @@
                 expensesToShow = expenses.filter(expense => expense.status === 'pending' || !expense.status || expense.status === '');
             }
             
+            // Get user's accessible warehouses
+            const accessibleWarehouses = getUserAccessibleWarehouses();
+            
             // Filter by warehouse based on user role
             if (users[currentUser].role === 'approver' && users[currentUser].warehouse && users[currentUser].warehouse !== '') {
                 // Approver with warehouse mapping: only see their assigned warehouses
                 const userWarehouses = users[currentUser].warehouse.split(',');
                 expensesToShow = expensesToShow.filter(expense => userWarehouses.includes(expense.warehouse));
+            } else if (users[currentUser].role === 'master' && users[currentUser].warehouse && users[currentUser].warehouse !== '') {
+                // Master with warehouse restrictions: only see accessible warehouses
+                if (currentApprovalFilter && currentApprovalFilter !== 'all') {
+                    if (hasWarehouseAccess(users[currentUser], currentApprovalFilter)) {
+                        expensesToShow = expensesToShow.filter(expense => {
+                            const expenseWarehouse = String(expense.warehouse || '');
+                            const filterWarehouse = String(currentApprovalFilter || '');
+                            return expenseWarehouse === filterWarehouse;
+                        });
+                    } else {
+                        expensesToShow = [];
+                    }
+                } else {
+                    // Show all accessible warehouses
+                    expensesToShow = expensesToShow.filter(expense => 
+                        accessibleWarehouses.includes(expense.warehouse)
+                    );
+                }
             } else if (currentApprovalFilter && currentApprovalFilter !== 'all') {
                 // Filter by warehouse selector (only if a specific warehouse is selected)
                 if (users[currentUser].role === 'approver' && !hasWarehouseAccess(users[currentUser], currentApprovalFilter)) {
@@ -3517,8 +3657,13 @@
                         return expenseWarehouse === filterWarehouse;
                     });
                 }
+            } else if (users[currentUser].role === 'master' && users[currentUser].warehouse && users[currentUser].warehouse !== '') {
+                // Master with warehouse restrictions but 'all' filter: show only accessible warehouses
+                expensesToShow = expensesToShow.filter(expense => 
+                    accessibleWarehouses.includes(expense.warehouse)
+                );
             }
-            // For master users with 'all' filter, show all pending expenses (no additional filtering)
+            // For master users with no warehouse restrictions and 'all' filter, show all pending expenses (no additional filtering)
             
             if (expensesToShow.length === 0) {
                 const message = ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID
@@ -3645,7 +3790,7 @@
             document.querySelectorAll('#approvals .filter-btn').forEach(btn => btn.classList.remove('active'));
             // Add active class to clicked button
             if (event && event.target) {
-                event.target.classList.add('active');
+            event.target.classList.add('active');
             } else {
                 // Fallback: find button by filter value
                 document.querySelectorAll('#approvals .filter-btn').forEach(btn => {
@@ -3839,7 +3984,10 @@
         function getFilteredExpenses() {
             let filteredExpenses = expenses;
             
-            // Filter by warehouse - Master users can see all or specific warehouse, warehouse users only see their own
+            // Get user's accessible warehouses
+            const accessibleWarehouses = getUserAccessibleWarehouses();
+            
+            // Filter by warehouse - Respect user's warehouse access restrictions
             if (users[currentUser].role === 'warehouse') {
                 // Warehouse users: only see their assigned warehouse approved expenses
                 filteredExpenses = filteredExpenses.filter(expense => 
@@ -3853,15 +4001,34 @@
                     } else {
                         filteredExpenses = [];
                     }
-                } else if (users[currentUser].warehouse && users[currentUser].warehouse !== '') {
-                    const userWarehouses = users[currentUser].warehouse.split(',');
-                    filteredExpenses = filteredExpenses.filter(expense => userWarehouses.includes(expense.warehouse));
+                } else {
+                    // If no specific warehouse selected, show only accessible warehouses
+                    filteredExpenses = filteredExpenses.filter(expense => 
+                        accessibleWarehouses.includes(expense.warehouse)
+                    );
                 }
-            } else if (currentWarehouse && currentWarehouse !== 'all') {
-                // Master users can filter by specific warehouse
-                filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
+            } else if (users[currentUser].role === 'master') {
+                // Master users: respect warehouse restrictions if they have assigned warehouses
+                if (users[currentUser].warehouse && users[currentUser].warehouse !== '') {
+                    // Master with warehouse restrictions: only show accessible warehouses
+                    if (currentWarehouse && currentWarehouse !== 'all') {
+                        if (hasWarehouseAccess(users[currentUser], currentWarehouse)) {
+                            filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
+                        } else {
+                            filteredExpenses = [];
+                        }
+                    } else {
+                        // Show all accessible warehouses
+                        filteredExpenses = filteredExpenses.filter(expense => 
+                            accessibleWarehouses.includes(expense.warehouse)
+                        );
+                    }
+                } else if (currentWarehouse && currentWarehouse !== 'all') {
+                    // Master with no restrictions: filter by selected warehouse
+                    filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
+                }
+                // If master has no restrictions and no filter, show all expenses
             }
-            // If master/approver selects 'all' or no filter, show all expenses (or assigned warehouses)
             
             // Apply date filters
             const fromDate = document.getElementById('downloadFromDate').value;
