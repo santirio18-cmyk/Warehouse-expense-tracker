@@ -4191,8 +4191,8 @@
                     expense.warehouse,
                             users[expense.createdBy]?.name || expense.createdBy,
                     expense.status || 'pending',
-                            expense.firstApprovedBy && expense.status !== 'rejected' ? (users[expense.firstApprovedBy]?.name || 'First Approver') : '',
-                            expense.firstApprovedAt && expense.status !== 'rejected' ? expense.firstApprovedAt : '',
+                            expense.firstApprovedBy ? (users[expense.firstApprovedBy]?.name || 'First Approver') : '',
+                            expense.firstApprovedAt || '',
                             expense.approvedBy && expense.status === 'rejected' ? (users[expense.approvedBy]?.name || 'Approver') : (expense.approvedBy && expense.status !== 'rejected' ? (users[expense.approvedBy]?.name || 'Approver') : ''),
                     expense.approvedAt && expense.status === 'rejected' ? expense.approvedAt : (expense.approvedAt && expense.status !== 'rejected' ? expense.approvedAt : '')
                         ].join(',');
@@ -4243,8 +4243,8 @@ Description: ${expense.description || 'N/A'}
 Warehouse: ${expense.warehouse}
 Created By: ${users[expense.createdBy]?.name || expense.createdBy}
 Status: ${expense.status || 'pending'}
-${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedBy && expense.status !== 'rejected' ? `First Approved By: ${users[expense.firstApprovedBy]?.name || 'First Approver'}` : ''}
-${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedAt && expense.status !== 'rejected' ? `First Approved At: ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}
+${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedBy ? `First Approved By: ${users[expense.firstApprovedBy]?.name || 'First Approver'}` : ''}
+${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedAt ? `First Approved At: ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}
 ${expense.approvedBy && expense.status === 'rejected' ? `Rejected By: ${users[expense.approvedBy]?.name || 'Approver'}` : ''}
 ${expense.approvedAt && expense.status === 'rejected' ? `Rejected At: ${new Date(expense.approvedAt).toLocaleString()}` : ''}
 ${expense.approvedBy && expense.status !== 'rejected' ? `Final Approved By: ${users[expense.approvedBy]?.name || 'Approver'}` : ''}
