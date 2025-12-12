@@ -4167,8 +4167,8 @@
                             expense.warehouse,
                             users[expense.createdBy]?.name || expense.createdBy,
                             expense.status || 'pending',
-                            expense.approvedBy ? (users[expense.approvedBy]?.name || 'Approver') : '',
-                            expense.approvedAt || ''
+                            expense.approvedBy && expense.status === 'rejected' ? (users[expense.approvedBy]?.name || 'Approver') : (expense.approvedBy && expense.status !== 'rejected' ? (users[expense.approvedBy]?.name || 'Approver') : ''),
+                            expense.approvedAt && expense.status === 'rejected' ? expense.approvedAt : (expense.approvedAt && expense.status !== 'rejected' ? expense.approvedAt : '')
                         ].join(',');
                     }
                 })
