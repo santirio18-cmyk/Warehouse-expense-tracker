@@ -2904,7 +2904,7 @@
                         ${expense.vendorName ? `<br>🏪 Vendor: <strong>${expense.vendorName}</strong>` : ''}
                         ${expense.paymentMode ? `<br>💳 Payment: <strong>${expense.paymentMode}</strong>` : ''}
                         ${expense.invoiceNumber ? `<br>🧾 Invoice: <strong>${expense.invoiceNumber}</strong>` : ''}
-                        ${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedBy && expense.status !== 'rejected' ? `<br>✅ First Approved by: <strong>${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy}</strong>${expense.firstApprovedAt ? ` on ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}` : ''}
+                        ${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedBy ? `<br>✅ First Approved by: <strong>${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy}</strong>${expense.firstApprovedAt ? ` on ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}` : ''}
                         ${expense.approvedBy && expense.status === 'rejected' ? `<br>❌ Rejected by: <strong>${users[expense.approvedBy]?.name || 'Approver'}</strong>${expense.approvedAt ? ` on ${new Date(expense.approvedAt).toLocaleString()}` : ''}` : ''}
                         ${expense.approvedBy && expense.status !== 'rejected' ? `<br>✅ Final Approved by: <strong>${users[expense.approvedBy]?.name || 'Approver'}</strong>${expense.approvedAt ? ` on ${new Date(expense.approvedAt).toLocaleString()}` : ''}` : ''}
                     </div>
