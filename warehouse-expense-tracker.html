@@ -1940,16 +1940,62 @@
         }
         
         async function deleteExpenseFirebase(expenseId) {
-            if (useFirebase && db) {
-                try {
-                    await db.collection('expenses').doc(expenseId).delete();
-                    return true;
-                } catch (error) {
-                    console.error('Error deleting expense from Firebase:', error);
-                    return false;
-                }
-            }
+            // Delete functionality disabled - expenses cannot be deleted
+            console.warn('Delete expense functionality has been disabled');
             return false;
+        }
+        
+        // Clear all expenses from Firebase and localStorage
+        async function clearAllExpenses() {
+            try {
+                if (useFirebase && db) {
+                    // Get all expenses from Firebase
+                    const snapshot = await db.collection('expenses').get();
+                    
+                    // Delete all expenses in batches (Firestore batch limit is 500)
+                    const batches = [];
+                    let currentBatch = db.batch();
+                    let count = 0;
+                    
+                    snapshot.docs.forEach((doc) => {
+                        currentBatch.delete(doc.ref);
+                        count++;
+                        
+                        if (count >= 500) {
+                            batches.push(currentBatch);
+                            currentBatch = db.batch();
+                            count = 0;
+                        }
+                    });
+                    
+                    if (count > 0) {
+                        batches.push(currentBatch);
+                    }
+                    
+                    // Commit all batches
+                    for (const batchToCommit of batches) {
+                        await batchToCommit.commit();
+                    }
+                    
+                    console.log('All expenses cleared from Firebase');
+                }
+                
+                // Clear from localStorage
+                localStorage.removeItem('warehouseExpenses');
+                console.log('All expenses cleared from localStorage');
+                
+                // Clear from memory
+                expenses = [];
+                
+                // Refresh the display
+                displayExpenses();
+                updateSummary();
+                
+                return true;
+            } catch (error) {
+                console.error('Error clearing expenses:', error);
+                throw error;
+            }
         }
         
         // Budgets Service
@@ -2090,6 +2136,17 @@
         // Load initial data
         (async function initializeData() {
             users = await getUsers();
+            // Clear all old expenses on first load
+            const expensesCleared = localStorage.getItem('expensesCleared');
+            if (!expensesCleared) {
+                try {
+                    await clearAllExpenses();
+                    localStorage.setItem('expensesCleared', 'true');
+                    console.log('All old expenses have been cleared');
+                } catch (error) {
+                    console.error('Error clearing expenses:', error);
+                }
+            }
             expenses = await getExpenses();
             budgets = await getBudgets();
             
@@ -2441,7 +2498,18 @@
                 }
                 
                 // Load data (ensure expenses and budgets are loaded)
-                expenses = await getExpenses();
+                // Clear all old expenses on first load
+            const expensesCleared = localStorage.getItem('expensesCleared');
+            if (!expensesCleared) {
+                try {
+                    await clearAllExpenses();
+                    localStorage.setItem('expensesCleared', 'true');
+                    console.log('All old expenses have been cleared');
+                } catch (error) {
+                    console.error('Error clearing expenses:', error);
+                }
+            }
+            expenses = await getExpenses();
                 budgets = await getBudgets();
                 displayExpenses();
                 updateSummary();
@@ -2550,7 +2618,18 @@
                     }
                     // Reload expenses asynchronously
                     (async () => {
-                        expenses = await getExpenses();
+                        // Clear all old expenses on first load
+            const expensesCleared = localStorage.getItem('expensesCleared');
+            if (!expensesCleared) {
+                try {
+                    await clearAllExpenses();
+                    localStorage.setItem('expensesCleared', 'true');
+                    console.log('All old expenses have been cleared');
+                } catch (error) {
+                    console.error('Error clearing expenses:', error);
+                }
+            }
+            expenses = await getExpenses();
                         requestAnimationFrame(() => displayApprovals());
                     })();
                 } else {
