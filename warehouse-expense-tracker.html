@@ -1101,6 +1101,7 @@
                             <select id="expenseCategory" required>
                                 <option value="Pooja">Pooja</option>
                                 <option value="Tea">Tea</option>
+                                <option value="Water">Water</option>
                                 <option value="Petrol">Petrol</option>
                                 <option value="Lunch">Lunch</option>
                                 <option value="Travel">Travel</option>
@@ -1424,6 +1425,7 @@
                             <option value="">All Categories</option>
                             <option value="Pooja">Pooja</option>
                             <option value="Tea">Tea</option>
+                            <option value="Water">Water</option>
                             <option value="Petrol">Petrol</option>
                             <option value="Lunch">Lunch</option>
                             <option value="Travel">Travel</option>
@@ -2106,6 +2108,72 @@
             }
         }
         
+        // Initialize budgets for 3 warehouses (Madurai Aritapatti, Madurai Ellis Nagar, Gurgaon)
+        async function initializeBudgetsForThreeWarehouses() {
+            const currentDate = new Date();
+            const month = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+            
+            // Budget data from the table
+            const budgetData = {
+                'warehouse_26': { // Madurai Aritapatti
+                    'Tea': 15392,
+                    'Lunch': 57720,
+                    'Water': 10400,
+                    'Pooja': 5000,
+                    'Staff Transportation': 65000,
+                    'Staff Welfare': 15000,
+                    'Electricity': 100000,
+                    'Stationary': 20000,
+                    'MHE Rental': 40000,
+                    'Packing Material': 40000,
+                    'Internet / Broadband': 25000,
+                    'Diesel Generator': 20000,
+                    'AMC': 16000
+                },
+                'warehouse_27': { // Madurai Ellis Nagar
+                    'Tea': 3536,
+                    'Lunch': 0,
+                    'Water': 1040,
+                    'Pooja': 2000,
+                    'Staff Transportation': 0,
+                    'Staff Welfare': 5000,
+                    'Electricity': 7500,
+                    'Stationary': 5000,
+                    'MHE Rental': 0,
+                    'Packing Material': 5000,
+                    'Internet / Broadband': 2000,
+                    'Diesel Generator': 1000,
+                    'AMC': 5000
+                },
+                'warehouse_20': { // Gurgaon
+                    'Tea': 18720,
+                    'Lunch': 70200,
+                    'Water': 10400,
+                    'Pooja': 2000,
+                    'Staff Transportation': 0,
+                    'Staff Welfare': 15000,
+                    'Electricity': 90000,
+                    'Stationary': 25000,
+                    'MHE Rental': 250000,
+                    'Packing Material': 25000,
+                    'Internet / Broadband': 10000,
+                    'Diesel Generator': 20000,
+                    'AMC': 15000
+                }
+            };
+            
+            // Save budgets for each warehouse
+            for (const [warehouse, categories] of Object.entries(budgetData)) {
+                for (const [category, amount] of Object.entries(categories)) {
+                    await saveBudget(warehouse, month, category, amount);
+                }
+            }
+            
+            // Reload budgets
+            budgets = await getBudgets();
+            console.log('✅ Budgets initialized for warehouse_26, warehouse_27, and warehouse_20');
+        }
+        
         // ============================================
         // User Management
         // ============================================
@@ -2167,6 +2235,18 @@
             }
             expenses = await getExpenses();
             budgets = await getBudgets();
+            
+            // Initialize budgets for 3 warehouses on first load
+            const budgetsInitialized = localStorage.getItem('budgetsInitialized');
+            if (!budgetsInitialized) {
+                try {
+                    await initializeBudgetsForThreeWarehouses();
+                    localStorage.setItem('budgetsInitialized', 'true');
+                    console.log('Budgets initialized for warehouse_26, warehouse_27, and warehouse_20');
+                } catch (error) {
+                    console.error('Error initializing budgets:', error);
+                }
+            }
             
             // Set up real-time listener for expenses (Firebase only)
             if (useFirebase && db) {
