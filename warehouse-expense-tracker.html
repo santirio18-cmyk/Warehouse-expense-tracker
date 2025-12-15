@@ -2404,18 +2404,17 @@
             if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
                 return true;
             }
-            // Master users always have access to all warehouses
-            if (user.role === 'master') {
-                return true;
-            }
-            if (!user.warehouse || user.warehouse === '') {
+            // If warehouse field is empty or not set, user has access to all warehouses
+            if (!user.warehouse || user.warehouse === '' || user.warehouse.trim() === '') {
                 return true; // Empty means all warehouses
             }
-            const userWarehouses = user.warehouse.split(',');
+            // Check if warehouse is in user's assigned warehouses list
+            const userWarehouses = user.warehouse.split(',').map(w => w.trim());
             return userWarehouses.includes(warehouse);
         }
         
         // Get list of warehouses accessible to current user
+        // This is based on warehouse assignments during user creation
         function getUserAccessibleWarehouses() {
             if (!currentUser || !users[currentUser]) {
                 return []; // No user logged in
@@ -2427,16 +2426,13 @@
                 return Array.from({length: 28}, (_, i) => `warehouse_${i + 1}`);
             }
             
-            // Master users always have access to all warehouses
-            if (user.role === 'master') {
-                return Array.from({length: 28}, (_, i) => `warehouse_${i + 1}`);
-            }
-            
-            if (!user.warehouse || user.warehouse === '') {
+            // If warehouse field is empty or not set, user has access to all warehouses
+            if (!user.warehouse || user.warehouse === '' || user.warehouse.trim() === '') {
                 // Empty means all warehouses - return all 28 warehouses
                 return Array.from({length: 28}, (_, i) => `warehouse_${i + 1}`);
             }
-            // Return only assigned warehouses
+            
+            // Return only assigned warehouses (respects warehouse assignments from user creation)
             return user.warehouse.split(',').map(w => w.trim()).filter(w => w);
         }
         
