@@ -2404,6 +2404,10 @@
             if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
                 return true;
             }
+            // Master users always have access to all warehouses
+            if (user.role === 'master') {
+                return true;
+            }
             if (!user.warehouse || user.warehouse === '') {
                 return true; // Empty means all warehouses
             }
