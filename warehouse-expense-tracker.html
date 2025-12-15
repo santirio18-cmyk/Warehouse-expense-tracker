@@ -3677,19 +3677,29 @@
         document.getElementById('addUserForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const username = document.getElementById('newUsername').value;
+            const employeeCode = document.getElementById('newEmployeeCode').value.trim();
             const password = document.getElementById('newPassword').value;
             const name = document.getElementById('newName').value;
-            const employeeCode = document.getElementById('newEmployeeCode').value;
             const email = document.getElementById('newEmail').value.trim();
             const role = document.getElementById('newRole').value;
             const warehouseSelect = document.getElementById('newWarehouse');
             
-            // Validate email format
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(email)) {
-                await customAlert('❌ Please enter a valid email address!');
+            // Use Employee Code as username
+            const username = employeeCode;
+            
+            // Validate employee code is not empty
+            if (!employeeCode || employeeCode.trim() === '') {
+                await customAlert('❌ Employee Code is required and will be used as username!');
                 return;
+            }
+            
+            // Validate email format only if email is provided (it's optional)
+            if (email && email.trim() !== '') {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    await customAlert('❌ Please enter a valid email address!');
+                    return;
+                }
             }
             
             // Get selected warehouses (multiple selection)
@@ -3697,7 +3707,7 @@
             const warehouse = selectedWarehouses.length > 0 ? selectedWarehouses.join(',') : '';
             
             if (users[username]) {
-                await customAlert('❌ Username already exists!');
+                await customAlert('❌ Employee Code already exists! Please use a different Employee Code.');
                 return;
             }
             
