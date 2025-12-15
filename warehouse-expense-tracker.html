@@ -2423,6 +2423,11 @@
                 return Array.from({length: 28}, (_, i) => `warehouse_${i + 1}`);
             }
             
+            // Master users always have access to all warehouses
+            if (user.role === 'master') {
+                return Array.from({length: 28}, (_, i) => `warehouse_${i + 1}`);
+            }
+            
             if (!user.warehouse || user.warehouse === '') {
                 // Empty means all warehouses - return all 28 warehouses
                 return Array.from({length: 28}, (_, i) => `warehouse_${i + 1}`);
