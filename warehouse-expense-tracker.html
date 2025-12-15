@@ -2408,8 +2408,13 @@
             if (!user.warehouse || user.warehouse === '' || user.warehouse.trim() === '') {
                 return true; // Empty means all warehouses
             }
+            // Get assigned warehouses
+            const userWarehouses = user.warehouse.split(',').map(w => w.trim()).filter(w => w);
+            // If all 28 warehouses are assigned, treat it as "all warehouses" access
+            if (userWarehouses.length === 28) {
+                return true;
+            }
             // Check if warehouse is in user's assigned warehouses list
-            const userWarehouses = user.warehouse.split(',').map(w => w.trim());
             return userWarehouses.includes(warehouse);
         }
         
@@ -2432,8 +2437,16 @@
                 return Array.from({length: 28}, (_, i) => `warehouse_${i + 1}`);
             }
             
+            // Get assigned warehouses
+            const assignedWarehouses = user.warehouse.split(',').map(w => w.trim()).filter(w => w);
+            
+            // If all 28 warehouses are assigned, treat it as "all warehouses" access
+            if (assignedWarehouses.length === 28) {
+                return Array.from({length: 28}, (_, i) => `warehouse_${i + 1}`);
+            }
+            
             // Return only assigned warehouses (respects warehouse assignments from user creation)
-            return user.warehouse.split(',').map(w => w.trim()).filter(w => w);
+            return assignedWarehouses;
         }
         
         // Filter warehouse dropdown options to only show accessible warehouses
