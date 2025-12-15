@@ -2437,20 +2437,31 @@
             if (!selectElement) return;
             
             const accessibleWarehouses = getUserAccessibleWarehouses();
-            const allOptions = Array.from(selectElement.options);
+            
+            // Store all option data before clearing
+            const allOptionsData = Array.from(selectElement.options).map(option => ({
+                value: option.value,
+                text: option.textContent
+            }));
             
             // Remove all options first
             selectElement.innerHTML = '';
             
             // Add only accessible warehouses
-            allOptions.forEach(option => {
-                const warehouseValue = option.value;
+            allOptionsData.forEach(optionData => {
+                const warehouseValue = optionData.value;
                 // Keep 'all' option only if user has access to all warehouses
                 if (warehouseValue === 'all') {
                     if (accessibleWarehouses.length === 28) {
+                        const option = document.createElement('option');
+                        option.value = optionData.value;
+                        option.textContent = optionData.text;
                         selectElement.appendChild(option);
                     }
                 } else if (accessibleWarehouses.includes(warehouseValue) || accessibleWarehouses.length === 28) {
+                    const option = document.createElement('option');
+                    option.value = optionData.value;
+                    option.textContent = optionData.text;
                     selectElement.appendChild(option);
                 }
             });
