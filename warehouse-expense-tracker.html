@@ -2222,17 +2222,6 @@
         // Load initial data
         (async function initializeData() {
             users = await getUsers();
-            // Clear all old expenses on first load
-            const expensesCleared = localStorage.getItem('expensesCleared');
-            if (!expensesCleared) {
-                try {
-                    await clearAllExpenses();
-                    localStorage.setItem('expensesCleared', 'true');
-                    console.log('All old expenses have been cleared');
-                } catch (error) {
-                    console.error('Error clearing expenses:', error);
-                }
-            }
             expenses = await getExpenses();
             budgets = await getBudgets();
             
@@ -2623,18 +2612,7 @@
                 }
                 
                 // Load data (ensure expenses and budgets are loaded)
-                // Clear all old expenses on first load
-            const expensesCleared = localStorage.getItem('expensesCleared');
-            if (!expensesCleared) {
-                try {
-                    await clearAllExpenses();
-                    localStorage.setItem('expensesCleared', 'true');
-                    console.log('All old expenses have been cleared');
-                } catch (error) {
-                    console.error('Error clearing expenses:', error);
-                }
-            }
-            expenses = await getExpenses();
+                expenses = await getExpenses();
                 budgets = await getBudgets();
                 displayExpenses();
                 updateSummary();
@@ -2743,18 +2721,7 @@
                     }
                     // Reload expenses asynchronously
                     (async () => {
-                        // Clear all old expenses on first load
-            const expensesCleared = localStorage.getItem('expensesCleared');
-            if (!expensesCleared) {
-                try {
-                    await clearAllExpenses();
-                    localStorage.setItem('expensesCleared', 'true');
-                    console.log('All old expenses have been cleared');
-                } catch (error) {
-                    console.error('Error clearing expenses:', error);
-                }
-            }
-            expenses = await getExpenses();
+                        expenses = await getExpenses();
                         requestAnimationFrame(() => displayApprovals());
                     })();
                 } else {
