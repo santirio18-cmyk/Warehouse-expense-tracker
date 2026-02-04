@@ -6,9 +6,29 @@
     <title>SCM Petty Cash Expense Management System</title>
     <!-- Updated: Removed demo user info from login -->
     
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <!-- Firebase SDK - Lazy loaded for better performance -->
+    <script>
+        // Lazy load Firebase SDK only when needed
+        let firebaseLoaded = false;
+        async function loadFirebaseSDK() {
+            if (firebaseLoaded) return;
+            const scripts = [
+                'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
+                'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js'
+            ];
+            for (const src of scripts) {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = src;
+                    script.async = true;
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+            }
+            firebaseLoaded = true;
+        }
+    </script>
     
     <!-- Gmail Email Server - No external SDK needed, uses fetch API -->
     
@@ -1564,18 +1584,74 @@
         let db = null;
         let useFirebase = false;
         
-        if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
+        // Lazy initialize Firebase only if configured
+        async function initializeFirebase() {
+            if (useFirebase || !firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY_HERE") {
+                return;
+            }
+            
             try {
+                // Load Firebase SDK if not already loaded
+                if (typeof firebase === 'undefined') {
+                    await loadFirebaseSDK();
+                }
+                
                 firebase.initializeApp(firebaseConfig);
                 db = firebase.firestore();
                 useFirebase = true;
                 console.log('✅ Firebase initialized successfully');
+                
+                // Set up real-time listener after initialization
+                setupFirebaseListener();
             } catch (error) {
                 console.error('❌ Firebase initialization error:', error);
                 useFirebase = false;
             }
+        }
+        
+        function setupFirebaseListener() {
+            if (!useFirebase || !db) return;
+            
+            db.collection('expenses').orderBy('date', 'desc').onSnapshot(snapshot => {
+                expenses = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    // Reconstruct invoiceFile from flattened fields
+                    if (data.invoiceFileName || data.invoiceFileData) {
+                        data.invoiceFile = {
+                            filename: data.invoiceFileName || null,
+                            type: data.invoiceFileType || null,
+                            size: data.invoiceFileSize || null,
+                            data: data.invoiceFileData || null,
+                            tooLarge: data.invoiceFileTooLarge || false
+                        };
+                        // Remove flattened fields
+                        delete data.invoiceFileName;
+                        delete data.invoiceFileType;
+                        delete data.invoiceFileSize;
+                        delete data.invoiceFileData;
+                        delete data.invoiceFileTooLarge;
+                    }
+                    return { id: doc.id, ...data };
+                });
+                if (currentUser) {
+                    // Use debounced functions to prevent excessive updates
+                    debouncedDisplayExpenses();
+                    debouncedUpdateSummary();
+                    // Refresh approvals if on approvals tab
+                    if (document.getElementById('approvals') && document.getElementById('approvals').classList.contains('active')) {
+                        debouncedDisplayApprovals();
+                    }
+                }
+            });
+        }
+        
+        // Initialize Firebase after page load for better performance
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                setTimeout(initializeFirebase, 1000); // Delay Firebase init by 1 second
+            });
         } else {
-            console.log('ℹ️ Firebase not configured - using localStorage');
+            setTimeout(initializeFirebase, 1000);
         }
         
         // ============================================
@@ -2237,40 +2313,8 @@
                 }
             }
             
-            // Set up real-time listener for expenses (Firebase only)
-            if (useFirebase && db) {
-                db.collection('expenses').orderBy('date', 'desc').onSnapshot(snapshot => {
-                    expenses = snapshot.docs.map(doc => {
-                        const data = doc.data();
-                        // Reconstruct invoiceFile from flattened fields
-                        if (data.invoiceFileName || data.invoiceFileData) {
-                            data.invoiceFile = {
-                                filename: data.invoiceFileName || null,
-                                type: data.invoiceFileType || null,
-                                size: data.invoiceFileSize || null,
-                                data: data.invoiceFileData || null,
-                                tooLarge: data.invoiceFileTooLarge || false
-                            };
-                            // Remove flattened fields
-                            delete data.invoiceFileName;
-                            delete data.invoiceFileType;
-                            delete data.invoiceFileSize;
-                            delete data.invoiceFileData;
-                            delete data.invoiceFileTooLarge;
-                        }
-                        return { id: doc.id, ...data };
-                    });
-                    if (currentUser) {
-                        // Use debounced functions to prevent excessive updates
-                        debouncedDisplayExpenses();
-                        debouncedUpdateSummary();
-                        // Refresh approvals if on approvals tab
-                        if (document.getElementById('approvals').classList.contains('active')) {
-                            debouncedDisplayApprovals();
-                        }
-                    }
-                });
-            }
+            // Firebase listener is now set up in setupFirebaseListener() function
+            // This is called automatically when Firebase initializes
         })();
         
         // Custom Modal Functions
@@ -3178,8 +3222,23 @@
                 return;
             }
             
+            // Pagination for better performance (only if more than 50 items)
+            const itemsPerPage = 50;
+            const currentPage = window.currentExpensePage || 1;
+            let paginatedExpenses = filteredExpenses;
+            let totalPages = 1;
+            let showPagination = false;
+            
+            if (filteredExpenses.length > itemsPerPage) {
+                showPagination = true;
+                const startIndex = (currentPage - 1) * itemsPerPage;
+                const endIndex = startIndex + itemsPerPage;
+                paginatedExpenses = filteredExpenses.slice(startIndex, endIndex);
+                totalPages = Math.ceil(filteredExpenses.length / itemsPerPage);
+            }
+            
             // Render expenses (optimized for performance)
-            expenseList.innerHTML = filteredExpenses.map(expense => `
+            let expensesHTML = paginatedExpenses.map(expense => `
                 <div class="expense-card">
                     <div class="expense-header">
                         <div>
@@ -3208,6 +3267,24 @@
                     ` : ''}
                 </div>
             `).join('');
+            
+            // Add pagination controls if needed
+            if (showPagination) {
+                let paginationHTML = '<div style="margin-top: 20px; display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap;">';
+                paginationHTML += `<span style="color: #666;">Page ${currentPage} of ${totalPages} (${filteredExpenses.length} total expenses)</span>`;
+                if (currentPage > 1) {
+                    paginationHTML += `<button onclick="window.currentExpensePage = ${currentPage - 1}; displayExpenses();" style="padding: 8px 16px; background: var(--mytvs-orange); color: white; border: none; border-radius: 6px; cursor: pointer;">← Previous</button>`;
+                }
+                if (currentPage < totalPages) {
+                    paginationHTML += `<button onclick="window.currentExpensePage = ${currentPage + 1}; displayExpenses();" style="padding: 8px 16px; background: var(--mytvs-orange); color: white; border: none; border-radius: 6px; cursor: pointer;">Next →</button>`;
+                }
+                paginationHTML += '</div>';
+                expensesHTML += paginationHTML;
+            } else {
+                window.currentExpensePage = 1; // Reset to page 1 if pagination not needed
+            }
+            
+            expenseList.innerHTML = expensesHTML;
         }
 
         // View invoice file in new tab
