@@ -2396,17 +2396,45 @@
             }
         }
 
+        // Warehouse name mapping
+        const warehouseNames = {
+            'warehouse_1': 'Salem',
+            'warehouse_2': 'Vellore',
+            'warehouse_3': 'Chennai Tyre',
+            'warehouse_4': 'Chennai Woods Road',
+            'warehouse_5': 'Bangalore Tyre',
+            'warehouse_6': 'Yeswanthpur',
+            'warehouse_7': 'Hubli',
+            'warehouse_8': 'Mangalore',
+            'warehouse_9': 'Hyderabad',
+            'warehouse_10': 'Vijayawada',
+            'warehouse_11': 'Vishakapatinam',
+            'warehouse_12': 'Kolkata',
+            'warehouse_13': 'Patna',
+            'warehouse_14': 'Raipur',
+            'warehouse_15': 'Bhubaneshwar',
+            'warehouse_16': 'Pune',
+            'warehouse_17': 'Bhiwandi',
+            'warehouse_18': 'Nagpur',
+            'warehouse_19': 'Ahmedabad',
+            'warehouse_20': 'Gurgaon',
+            'warehouse_21': 'Jaipur',
+            'warehouse_22': 'Lucknow',
+            'warehouse_23': 'Ghaziabad',
+            'warehouse_24': 'Manjumel',
+            'warehouse_25': 'Namakal',
+            'warehouse_26': 'Madurai Aritapatti',
+            'warehouse_27': 'Madurai Ellis Nagar',
+            'warehouse_28': 'Bhopal'
+        };
+
         // Helper function to convert warehouse ID to warehouse name
         function getWarehouseName(warehouseId) {
             if (!warehouseId || warehouseId === 'all') {
                 return 'All Warehouses';
             }
-            // Convert "warehouse_1" to "Warehouse 1", "warehouse_2" to "Warehouse 2", etc.
-            if (warehouseId.startsWith('warehouse_')) {
-                const number = warehouseId.replace('warehouse_', '');
-                return `Warehouse ${number}`;
-            }
-            return warehouseId; // Return as-is if format is unexpected
+            // Return actual warehouse name from mapping, or fallback to warehouse ID
+            return warehouseNames[warehouseId] || warehouseId;
         }
 
         // Check if user has access to a specific warehouse
