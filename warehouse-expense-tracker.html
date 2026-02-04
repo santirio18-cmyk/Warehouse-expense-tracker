@@ -2388,6 +2388,20 @@
             return warehouseNames[warehouseId] || warehouseId;
         }
         
+        // Get approval status display text
+        function getApprovalStatusText(status) {
+            if (status === 'pending') {
+                return '1st Level Approval Pending';
+            } else if (status === 'first_approved') {
+                return '2nd Level Approval Pending';
+            } else if (status === 'approved') {
+                return 'APPROVED';
+            } else if (status === 'rejected') {
+                return 'REJECTED';
+            }
+            return status ? status.toUpperCase() : 'PENDING';
+        }
+        
         function hasWarehouseAccess(user, warehouse) {
             // Second-level approver always has access to all warehouses
             if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
@@ -3102,7 +3116,7 @@
                         <div>
                             <span class="expense-category">${expense.category}</span>
                             <span class="warehouse-badge">${getWarehouseName(expense.warehouse)}</span>
-                            <span class="approval-status ${expense.status}">${expense.status === 'first_approved' ? 'FIRST APPROVED' : expense.status.toUpperCase()}</span>
+                            <span class="approval-status ${expense.status}">${getApprovalStatusText(expense.status)}</span>
                         </div>
                         <span class="expense-amount">₹${expense.amount.toFixed(2)}</span>
                     </div>
@@ -4049,7 +4063,7 @@
                         <div>
                             <span class="expense-category">${expense.category}</span>
                             <span class="warehouse-badge">${getWarehouseName(expense.warehouse)}</span>
-                            <span class="approval-status ${expense.status}">${expense.status === 'first_approved' ? 'FIRST APPROVED' : expense.status.toUpperCase()}</span>
+                            <span class="approval-status ${expense.status}">${getApprovalStatusText(expense.status)}</span>
                         </div>
                         <span class="expense-amount">₹${expense.amount.toFixed(2)}</span>
                     </div>
