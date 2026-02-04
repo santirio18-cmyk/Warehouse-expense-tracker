@@ -2396,6 +2396,19 @@
             }
         }
 
+        // Helper function to convert warehouse ID to warehouse name
+        function getWarehouseName(warehouseId) {
+            if (!warehouseId || warehouseId === 'all') {
+                return 'All Warehouses';
+            }
+            // Convert "warehouse_1" to "Warehouse 1", "warehouse_2" to "Warehouse 2", etc.
+            if (warehouseId.startsWith('warehouse_')) {
+                const number = warehouseId.replace('warehouse_', '');
+                return `Warehouse ${number}`;
+            }
+            return warehouseId; // Return as-is if format is unexpected
+        }
+
         // Download functions
         function downloadCSV() {
             let filteredExpenses = getFilteredExpenses();
@@ -2461,7 +2474,7 @@
                     expense.paymentMode || '',
                     expense.invoiceNumber || '',
                     `"${expense.description || ''}"`,
-                    expense.warehouse,
+                    getWarehouseName(expense.warehouse),
                     expense.createdBy,
                     expense.status || 'pending',
                     expense.approvedBy || '',
@@ -2477,7 +2490,7 @@
 WAREHOUSE EXPENSE REPORT
 Generated: ${new Date().toLocaleString()}
 User: ${currentUser}
-Warehouse: ${currentWarehouse || 'All'}
+Warehouse: ${getWarehouseName(currentWarehouse) || 'All'}
 
 SUMMARY:
 Total Expenses: ₹${totalAmount.toFixed(2)}
@@ -2493,7 +2506,7 @@ ${expense.paymentMode ? `Payment Mode: ${expense.paymentMode}` : ''}
 ${expense.invoiceNumber ? `Invoice: ${expense.invoiceNumber}` : ''}
 ${expense.invoiceFile ? `Invoice File: ${expense.invoiceFile.filename}` : ''}
 Description: ${expense.description || 'N/A'}
-Warehouse: ${expense.warehouse}
+Warehouse: ${getWarehouseName(expense.warehouse)}
 Created By: ${expense.createdBy}
 Status: ${expense.status || 'pending'}
 ${expense.approvedBy ? `Approved By: ${expense.approvedBy}` : ''}
