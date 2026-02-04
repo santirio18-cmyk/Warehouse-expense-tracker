@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>myTVS SCM Expense Management System</title>
+    <title>Warehouse Expense Tracker - Multi-User</title>
     <style>
         * {
             margin: 0;
@@ -11,22 +11,33 @@
             box-sizing: border-box;
         }
 
-        /* myTVS Color Scheme */
-        :root {
-            --mytvs-orange: #FF6600;
-            --mytvs-blue: #003366;
-            --mytvs-blue-light: #004d99;
-            --mytvs-gray: #f5f5f5;
-            --mytvs-white: #ffffff;
-        }
-
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: var(--mytvs-gray);
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #00c9ff 100%);
             min-height: 100vh;
             color: #333;
             position: relative;
             overflow-x: hidden;
+        }
+        
+        /* Animated background particles */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="rgba(255,255,255,0.03)" d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,122.7C672,117,768,139,864,154.7C960,171,1056,181,1152,165.3C1248,149,1344,107,1392,85.3L1440,64L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>') no-repeat center;
+            background-size: cover;
+            animation: wave 20s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        @keyframes wave {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
         }
 
         .container {
@@ -40,48 +51,18 @@
         .header {
             text-align: center;
             margin-bottom: 30px;
-            color: #003366;
-        }
-
-        .logo {
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .logo img {
-            max-height: 60px;
-            width: auto;
-        }
-
-        .logo-text {
-            font-size: 3rem;
-            font-weight: bold;
-            font-family: 'Arial', sans-serif;
-            letter-spacing: -1px;
-        }
-
-        .logo-text .my {
-            color: #FF6600;
-            text-transform: lowercase;
-        }
-
-        .logo-text .tvs {
-            color: #003366;
-            text-transform: uppercase;
+            color: white;
         }
 
         .header h1 {
-            font-size: 2rem;
+            font-size: 2.5rem;
             margin-bottom: 10px;
-            color: #003366;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
 
         .header p {
             font-size: 1.1rem;
-            color: #666;
+            opacity: 0.9;
         }
 
         .login-container {
@@ -128,13 +109,13 @@
 
         input:focus, select:focus, textarea:focus {
             outline: none;
-            border-color: var(--mytvs-orange);
+            border-color: #2a5298;
             background: white;
-            box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.1);
+            box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.1);
         }
 
         .btn {
-            background: var(--mytvs-orange);
+            background: linear-gradient(135deg, #2a5298 0%, #00c9ff 100%);
             color: white;
             border: none;
             padding: 12px 30px;
@@ -143,14 +124,13 @@
             font-size: 16px;
             font-weight: 600;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(255, 102, 0, 0.3);
+            box-shadow: 0 4px 15px rgba(42, 82, 152, 0.3);
             width: 100%;
         }
 
         .btn:hover {
-            background: #e55a00;
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(255, 102, 0, 0.4);
+            box-shadow: 0 6px 20px rgba(42, 82, 152, 0.4);
         }
         
         .btn:active {
@@ -205,10 +185,11 @@
 
         .tab-content {
             display: none;
-            background: var(--mytvs-white);
+            background: white;
             border-radius: 20px;
             padding: 30px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
         }
 
         .tab-content.active {
@@ -222,15 +203,14 @@
         }
 
         .user-info {
-            background: var(--mytvs-white);
+            background: rgba(255,255,255,0.1);
             padding: 15px;
             border-radius: 10px;
             margin-bottom: 20px;
-            color: var(--mytvs-blue);
+            color: white;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
         .warehouse-selector {
@@ -265,7 +245,7 @@
         }
 
         .expense-category {
-            background: var(--mytvs-orange);
+            background: linear-gradient(135deg, #2a5298 0%, #00c9ff 100%);
             color: white;
             padding: 6px 12px;
             border-radius: 20px;
@@ -757,15 +737,6 @@
         <!-- Login Screen -->
         <div id="loginScreen" class="login-container">
             <div class="login-form">
-                <div class="logo" style="margin-bottom: 20px;">
-                    <!-- Option 1: Use image logo (if you have myTVS-logo.png in the same folder) -->
-                    <!-- <img src="myTVS-logo.png" alt="myTVS Logo"> -->
-                    
-                    <!-- Option 2: CSS-based logo -->
-                    <div class="logo-text">
-                        <span class="my">my</span><span class="tvs">TVS</span>
-                    </div>
-                </div>
                 <h2>🔐 Login to Expense Tracker</h2>
                 <form id="loginForm">
                     <div class="form-group">
@@ -791,16 +762,7 @@
         <!-- Main Application -->
         <div id="mainApp" style="display: none;">
             <div class="header">
-                <div class="logo">
-                    <!-- Option 1: Use image logo (if you have myTVS-logo.png in the same folder) -->
-                    <!-- <img src="myTVS-logo.png" alt="myTVS Logo"> -->
-                    
-                    <!-- Option 2: CSS-based logo -->
-                    <div class="logo-text">
-                        <span class="my">my</span><span class="tvs">TVS</span>
-                    </div>
-                </div>
-                <h1>SCM Expense Management System</h1>
+                <h1>🏢 Warehouse Expense Tracker</h1>
                 <p>Multi-User Expense Management System</p>
             </div>
 
