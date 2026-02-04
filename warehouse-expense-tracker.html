@@ -3,7 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Warehouse Expense Tracker - Multi-User</title>
+    <title>SCM Petty Cash Expense Management System</title>
+    <!-- Updated: Removed demo user info from login -->
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <!-- Gmail Email Server - No external SDK needed, uses fetch API -->
+    
     <style>
         * {
             margin: 0;
@@ -13,56 +21,98 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #00c9ff 100%);
+            background: #f5f5f5;
             min-height: 100vh;
             color: #333;
             position: relative;
             overflow-x: hidden;
         }
         
-        /* Animated background particles */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="rgba(255,255,255,0.03)" d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,122.7C672,117,768,139,864,154.7C960,171,1056,181,1152,165.3C1248,149,1344,107,1392,85.3L1440,64L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>') no-repeat center;
-            background-size: cover;
-            animation: wave 20s ease-in-out infinite;
-            pointer-events: none;
-            z-index: 0;
-        }
-        
-        @keyframes wave {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-20px); }
+        /* myTVS Color Scheme */
+        :root {
+            --mytvs-orange: #FF6600;
+            --mytvs-blue: #003366;
+            --mytvs-blue-light: #004d99;
+            --mytvs-gray: #f5f5f5;
+            --mytvs-white: #ffffff;
         }
 
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 15px;
             position: relative;
             z-index: 1;
         }
 
         .header {
             text-align: center;
-            margin-bottom: 30px;
-            color: white;
+            margin-bottom: 15px;
+            color: #003366;
+            background: var(--mytvs-white);
+            border: 3px solid var(--mytvs-orange);
+            border-radius: 12px;
+            padding: 15px 20px;
+            box-shadow: 0 4px 15px rgba(255, 102, 0, 0.15);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, var(--mytvs-orange) 0%, var(--mytvs-blue) 100%);
+        }
+
+        .logo {
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .logo img {
+            max-height: 60px;
+            width: auto;
+        }
+
+        .logo-text {
+            font-size: 2rem;
+            font-weight: bold;
+            font-family: 'Arial', sans-serif;
+            letter-spacing: -1px;
+        }
+
+        .logo-text .my {
+            color: #FF6600;
+            text-transform: lowercase;
+        }
+
+        .logo-text .tvs {
+            color: #003366;
+            text-transform: uppercase;
         }
 
         .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+            color: #003366;
+            font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-bottom: 2px solid var(--mytvs-orange);
+            padding-bottom: 8px;
+            margin-bottom: 8px;
         }
 
         .header p {
-            font-size: 1.1rem;
-            opacity: 0.9;
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 5px;
+            font-weight: 500;
         }
 
         .login-container {
@@ -87,7 +137,8 @@
         .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px;
+            gap: 20px;
+            margin-bottom: 15px;
         }
 
         label {
@@ -106,16 +157,47 @@
             transition: all 0.3s ease;
             background: #f8f9fa;
         }
+        
+        .password-input-wrapper {
+            position: relative;
+        }
+        
+        .password-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #e1e5e9;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            padding: 6px 10px;
+            z-index: 10;
+            transition: all 0.3s ease;
+        }
+        
+        .password-toggle:hover {
+            background: var(--mytvs-orange);
+            color: white;
+            border-color: var(--mytvs-orange);
+        }
+        
+        .password-input-wrapper input {
+            padding-right: 45px;
+        }
 
         input:focus, select:focus, textarea:focus {
             outline: none;
-            border-color: #2a5298;
+            border-color: var(--mytvs-orange);
             background: white;
-            box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.1);
+            box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.1);
         }
 
         .btn {
-            background: linear-gradient(135deg, #2a5298 0%, #00c9ff 100%);
+            background: var(--mytvs-orange);
             color: white;
             border: none;
             padding: 12px 30px;
@@ -124,13 +206,14 @@
             font-size: 16px;
             font-weight: 600;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(42, 82, 152, 0.3);
+            box-shadow: 0 4px 15px rgba(255, 102, 0, 0.3);
             width: 100%;
         }
 
         .btn:hover {
+            background: #e55a00;
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(42, 82, 152, 0.4);
+            box-shadow: 0 6px 20px rgba(255, 102, 0, 0.4);
         }
         
         .btn:active {
@@ -155,32 +238,35 @@
         .nav-tabs {
             display: flex;
             justify-content: center;
-            margin-bottom: 30px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 15px;
-            padding: 5px;
-            backdrop-filter: blur(10px);
+            margin-bottom: 15px;
+            background: var(--mytvs-white);
+            border-radius: 12px;
+            padding: 6px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
         .nav-tab {
-            padding: 12px 24px;
-            margin: 0 5px;
+            padding: 12px 20px;
+            margin: 0 3px;
             background: transparent;
             border: none;
-            color: white;
-            border-radius: 10px;
+            color: var(--mytvs-blue);
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
-            font-weight: 500;
+            font-weight: 700;
+            font-size: 16px;
         }
 
         .nav-tab.active {
-            background: rgba(255,255,255,0.2);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            background: var(--mytvs-orange);
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 102, 0, 0.3);
         }
 
         .nav-tab:hover {
-            background: rgba(255,255,255,0.15);
+            background: rgba(255, 102, 0, 0.1);
+            color: var(--mytvs-orange);
         }
 
         .tab-content {
@@ -203,21 +289,62 @@
         }
 
         .user-info {
-            background: rgba(255,255,255,0.1);
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
+            background: var(--mytvs-blue);
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
             color: white;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            font-size: 15px;
+            font-weight: 600;
+        }
+        
+        .user-info strong {
+            font-size: 15px;
+            font-weight: 700;
         }
 
         .warehouse-selector {
             background: #f8f9fa;
-            padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 20px;
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            border: 2px solid #e1e5e9;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .warehouse-selector h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #003366;
+            margin-bottom: 10px;
+        }
+        
+        .warehouse-selector select {
+            font-size: 15px;
+            font-weight: 600;
+            padding: 10px 15px;
+            width: 100%;
+            max-width: 400px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            background: white;
+            color: #003366;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .warehouse-selector select:hover {
+            border-color: var(--mytvs-orange);
+            box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.1);
+        }
+        
+        .warehouse-selector select:focus {
+            outline: none;
+            border-color: var(--mytvs-orange);
+            box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.2);
         }
 
         .expense-card {
@@ -245,7 +372,7 @@
         }
 
         .expense-category {
-            background: linear-gradient(135deg, #2a5298 0%, #00c9ff 100%);
+            background: var(--mytvs-orange);
             color: white;
             padding: 6px 12px;
             border-radius: 20px;
@@ -273,7 +400,7 @@
         }
 
         .warehouse-badge {
-            background: #17a2b8;
+            background: var(--mytvs-blue);
             color: white;
             padding: 4px 8px;
             border-radius: 12px;
@@ -289,12 +416,12 @@
         }
 
         .summary-card {
-            background: linear-gradient(135deg, #2a5298 0%, #00c9ff 100%);
+            background: var(--mytvs-blue);
             color: white;
             padding: 25px;
             border-radius: 15px;
             text-align: center;
-            box-shadow: 0 8px 25px rgba(42, 82, 152, 0.3);
+            box-shadow: 0 8px 25px rgba(0, 51, 102, 0.3);
         }
 
         .summary-card h3 {
@@ -308,9 +435,16 @@
 
         .filter-section {
             background: #f8f9fa;
-            padding: 20px;
+            padding: 25px 30px;
             border-radius: 15px;
-            margin-bottom: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .filter-section h3 {
+            margin-bottom: 18px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #003366;
         }
 
         .filter-buttons {
@@ -320,23 +454,24 @@
         }
 
         .filter-btn {
-            padding: 8px 16px;
-            border: 2px solid #2a5298;
+            padding: 12px 24px;
+            border: 2px solid var(--mytvs-orange);
             background: transparent;
-            color: #2a5298;
+            color: var(--mytvs-orange);
             border-radius: 20px;
             cursor: pointer;
             transition: all 0.3s ease;
-            font-weight: 500;
+            font-weight: 600;
+            font-size: 15px;
         }
 
         .filter-btn.active {
-            background: #2a5298;
+            background: var(--mytvs-orange);
             color: white;
         }
 
         .filter-btn:hover {
-            background: #2a5298;
+            background: var(--mytvs-orange);
             color: white;
         }
 
@@ -426,6 +561,11 @@
             background: #dc3545;
         }
 
+        .user-role.approver {
+            background: #ffc107;
+            color: #000;
+        }
+
         .user-role.warehouse {
             background: #28a745;
         }
@@ -441,6 +581,11 @@
         .approval-status.pending {
             background: #ffc107;
             color: #000;
+        }
+
+        .approval-status.first_approved {
+            background: #17a2b8;
+            color: white;
         }
 
         .approval-status.approved {
@@ -470,12 +615,12 @@
         }
 
         .approve-btn {
-            background: #28a745;
+            background: var(--mytvs-orange);
             color: white;
         }
 
         .approve-btn:hover {
-            background: #218838;
+            background: #e55a00;
         }
 
         .reject-btn {
@@ -488,17 +633,18 @@
         }
 
         .approval-card {
-            background: #fff3cd;
-            border: 2px solid #ffc107;
+            background: var(--mytvs-white);
+            border: 2px solid var(--mytvs-orange);
             border-radius: 15px;
             padding: 20px;
             margin-bottom: 15px;
             position: relative;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
         .approval-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(255, 193, 7, 0.2);
+            box-shadow: 0 8px 25px rgba(255, 102, 0, 0.2);
         }
 
         .category-breakdown {
@@ -639,6 +785,97 @@
         }
 
         /* Toast Notifications */
+        /* Custom Modal Dialog */
+        .custom-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .custom-modal-overlay.show {
+            display: flex;
+        }
+
+        .custom-modal {
+            background: white;
+            border-radius: 15px;
+            padding: 0;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .custom-modal-header {
+            background: var(--mytvs-blue);
+            color: white;
+            padding: 20px;
+            border-radius: 15px 15px 0 0;
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .custom-modal-body {
+            padding: 25px;
+            color: #333;
+            white-space: pre-line;
+            line-height: 1.6;
+        }
+
+        .custom-modal-footer {
+            padding: 15px 25px;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .custom-modal-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            min-width: 80px;
+        }
+
+        .custom-modal-btn-primary {
+            background: var(--mytvs-orange);
+            color: white;
+        }
+
+        .custom-modal-btn-primary:hover {
+            background: #e55a00;
+        }
+
+        .custom-modal-btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .custom-modal-btn-secondary:hover {
+            background: #5a6268;
+        }
+
         .toast-container {
             position: fixed;
             top: 20px;
@@ -734,10 +971,28 @@
         <!-- Toast Container -->
         <div id="toastContainer" class="toast-container"></div>
         
+        <!-- Custom Modal Dialog -->
+        <div id="customModalOverlay" class="custom-modal-overlay">
+            <div class="custom-modal">
+                <div class="custom-modal-header" id="customModalTitle">SCM Petty Cash Expense Management System</div>
+                <div class="custom-modal-body" id="customModalMessage"></div>
+                <div class="custom-modal-footer" id="customModalFooter"></div>
+            </div>
+        </div>
+        
         <!-- Login Screen -->
         <div id="loginScreen" class="login-container">
             <div class="login-form">
-                <h2>🔐 Login to Expense Tracker</h2>
+                <div class="logo" style="margin-bottom: 20px;">
+                    <!-- Option 1: Use image logo (if you have myTVS-logo.png in the same folder) -->
+                    <!-- <img src="myTVS-logo.png" alt="myTVS Logo"> -->
+                    
+                    <!-- Option 2: CSS-based logo -->
+                    <div class="logo-text">
+                        <span class="my">my</span><span class="tvs">TVS</span>
+                    </div>
+                </div>
+                <h2>Login to Expense Tracker</h2>
                 <form id="loginForm">
                     <div class="form-group">
                         <label for="username">Username:</label>
@@ -745,69 +1000,39 @@
                     </div>
                     <div class="form-group">
                         <label for="password">Password:</label>
+                        <div class="password-input-wrapper">
                         <input type="password" id="password" required>
+                            <button type="button" class="password-toggle" onclick="togglePasswordVisibility()" title="Show/Hide Password">
+                                <span id="passwordToggleIcon">Show</span>
+                            </button>
+                        </div>
                     </div>
                     <button type="submit" class="btn">Login</button>
                 </form>
-                <div style="margin-top: 20px; text-align: center;">
-                    <p><strong>Demo Users:</strong></p>
-                    <p><strong>Master Admin:</strong> admin / admin123</p>
-                    <p><strong>Warehouse 1-28:</strong> warehouse_1 to warehouse_28 / pass123</p>
-                    <p style="font-size: 12px; color: #6c757d;">Example: warehouse_5 / pass123 for Warehouse 5</p>
-                    <button onclick="clearStorage()" class="btn btn-danger" style="margin-top: 15px; width: 100%;">🗑️ Clear All Storage & Reset</button>
-                </div>
             </div>
         </div>
 
         <!-- Main Application -->
         <div id="mainApp" style="display: none;">
             <div class="header">
-                <h1>🏢 Warehouse Expense Tracker</h1>
-                <p>Multi-User Expense Management System</p>
+                <div class="logo">
+                    <!-- Option 1: Use image logo (if you have myTVS-logo.png in the same folder) -->
+                    <!-- <img src="myTVS-logo.png" alt="myTVS Logo"> -->
+                    
+                    <!-- Option 2: CSS-based logo -->
+                    <div class="logo-text">
+                        <span class="my">my</span><span class="tvs">TVS</span>
+                    </div>
+                </div>
+                <h1>SCM Petty Cash Expense Management System</h1>
+                <p>Multi-User Petty Cash Expense Management System</p>
             </div>
 
             <div class="user-info">
                 <div>
                     <strong>Welcome, <span id="currentUser"></span></strong>
-                    <span class="user-role" id="userRole"></span>
                 </div>
                 <button onclick="logout()" class="btn btn-danger" style="width: auto; padding: 8px 16px;">Logout</button>
-            </div>
-
-            <!-- Warehouse Selector for Master Users -->
-            <div id="warehouseSelector" class="warehouse-selector" style="display: none;">
-                <h3>Select Warehouse to View:</h3>
-                <select id="warehouseSelect" onchange="switchWarehouse()">
-                    <option value="all">All Warehouses</option>
-                    <option value="warehouse_1">Warehouse 1</option>
-                    <option value="warehouse_2">Warehouse 2</option>
-                    <option value="warehouse_3">Warehouse 3</option>
-                    <option value="warehouse_4">Warehouse 4</option>
-                    <option value="warehouse_5">Warehouse 5</option>
-                    <option value="warehouse_6">Warehouse 6</option>
-                    <option value="warehouse_7">Warehouse 7</option>
-                    <option value="warehouse_8">Warehouse 8</option>
-                    <option value="warehouse_9">Warehouse 9</option>
-                    <option value="warehouse_10">Warehouse 10</option>
-                    <option value="warehouse_11">Warehouse 11</option>
-                    <option value="warehouse_12">Warehouse 12</option>
-                    <option value="warehouse_13">Warehouse 13</option>
-                    <option value="warehouse_14">Warehouse 14</option>
-                    <option value="warehouse_15">Warehouse 15</option>
-                    <option value="warehouse_16">Warehouse 16</option>
-                    <option value="warehouse_17">Warehouse 17</option>
-                    <option value="warehouse_18">Warehouse 18</option>
-                    <option value="warehouse_19">Warehouse 19</option>
-                    <option value="warehouse_20">Warehouse 20</option>
-                    <option value="warehouse_21">Warehouse 21</option>
-                    <option value="warehouse_22">Warehouse 22</option>
-                    <option value="warehouse_23">Warehouse 23</option>
-                    <option value="warehouse_24">Warehouse 24</option>
-                    <option value="warehouse_25">Warehouse 25</option>
-                    <option value="warehouse_26">Warehouse 26</option>
-                    <option value="warehouse_27">Warehouse 27</option>
-                    <option value="warehouse_28">Warehouse 28</option>
-                </select>
             </div>
 
             <div class="nav-tabs">
@@ -818,6 +1043,41 @@
                 <button class="nav-tab" onclick="showTab('approvals')" id="approvalsTab" style="display: none;">✅ Approvals</button>
                 <button class="nav-tab" onclick="showTab('download')">📥 Download</button>
                 <button class="nav-tab" onclick="showTab('users')" id="usersTab" style="display: none;">👥 Users</button>
+            </div>
+
+            <!-- Warehouse Selector for Master Users -->
+            <div id="warehouseSelector" class="warehouse-selector" style="display: none;">
+                <h3>Select Warehouse to View:</h3>
+                <select id="warehouseSelect" onchange="switchWarehouse()">
+                    <option value="warehouse_1">Salem</option>
+                    <option value="warehouse_2">Vellore</option>
+                    <option value="warehouse_3">Chennai Tyre</option>
+                    <option value="warehouse_4">Chennai Woods Road</option>
+                    <option value="warehouse_5">Bangalore Tyre</option>
+                    <option value="warehouse_6">Yeswanthpur</option>
+                    <option value="warehouse_7">Hubli</option>
+                    <option value="warehouse_8">Mangalore</option>
+                    <option value="warehouse_9">Hyderabad</option>
+                    <option value="warehouse_10">Vijayawada</option>
+                    <option value="warehouse_11">Vishakapatinam</option>
+                    <option value="warehouse_12">Kolkata</option>
+                    <option value="warehouse_13">Patna</option>
+                    <option value="warehouse_14">Raipur</option>
+                    <option value="warehouse_15">Bhubaneshwar</option>
+                    <option value="warehouse_16">Pune</option>
+                    <option value="warehouse_17">Bhiwandi</option>
+                    <option value="warehouse_18">Nagpur</option>
+                    <option value="warehouse_19">Ahmedabad</option>
+                    <option value="warehouse_20">Gurgaon</option>
+                    <option value="warehouse_21">Jaipur</option>
+                    <option value="warehouse_22">Lucknow</option>
+                    <option value="warehouse_23">Ghaziabad</option>
+                    <option value="warehouse_24">Manjumel</option>
+                    <option value="warehouse_25">Namakal</option>
+                    <option value="warehouse_26">Madurai Aritapatti</option>
+                    <option value="warehouse_27">Madurai Ellis Nagar</option>
+                    <option value="warehouse_28">Bhopal</option>
+                </select>
             </div>
 
             <!-- Add Expense Tab -->
@@ -841,6 +1101,7 @@
                             <select id="expenseCategory" required>
                                 <option value="Pooja">Pooja</option>
                                 <option value="Tea">Tea</option>
+                                <option value="Water">Water</option>
                                 <option value="Petrol">Petrol</option>
                                 <option value="Lunch">Lunch</option>
                                 <option value="Travel">Travel</option>
@@ -848,6 +1109,16 @@
                                 <option value="Maintenance">Maintenance</option>
                                 <option value="Utilities">Utilities</option>
                                 <option value="Supplies">Supplies</option>
+                                <option value="Rent">Rent</option>
+                                <option value="Staff Transportation">Staff Transportation</option>
+                                <option value="Staff Welfare">Staff Welfare</option>
+                                <option value="Electricity">Electricity</option>
+                                <option value="Stationary">Stationary</option>
+                                <option value="MHE Rental">MHE Rental</option>
+                                <option value="Packing Material">Packing Material</option>
+                                <option value="Internet / Broadband">Internet / Broadband</option>
+                                <option value="Diesel Generator">Diesel Generator</option>
+                                <option value="AMC">AMC</option>
                                 <option value="Other">Other</option>
                             </select>
                         </div>
@@ -887,7 +1158,7 @@
                     <div class="form-group">
                         <label for="invoiceFile">Invoice Document (PDF/JPEG) *</label>
                         <input type="file" id="invoiceFile" accept=".pdf,.jpg,.jpeg,.png" required>
-                        <small style="color: #6c757d; font-size: 14px; display: block; margin-top: 5px;">Supported formats: PDF, JPG, JPEG, PNG (Max size: 10MB)</small>
+                        <small style="color: #6c757d; font-size: 14px; display: block; margin-top: 5px;">Supported formats: PDF, JPG, JPEG, PNG (Max size: 750KB for Firebase, 10MB for local storage)</small>
                     </div>
 
                     <div class="form-group">
@@ -895,7 +1166,7 @@
                         <textarea id="expenseDescription" rows="3" placeholder="Add any additional details..."></textarea>
                     </div>
 
-                    <button type="submit" class="btn">💾 Add Expense</button>
+                    <button type="submit" class="btn">Add Expense</button>
                 </form>
             </div>
 
@@ -985,34 +1256,34 @@
                     <h3>Filter Pending Approvals</h3>
                     <div class="filter-buttons">
                         <button class="filter-btn active" onclick="filterApprovals('all')">All Pending</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_1')">Warehouse 1</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_2')">Warehouse 2</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_3')">Warehouse 3</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_4')">Warehouse 4</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_5')">Warehouse 5</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_6')">Warehouse 6</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_7')">Warehouse 7</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_8')">Warehouse 8</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_9')">Warehouse 9</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_10')">Warehouse 10</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_11')">Warehouse 11</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_12')">Warehouse 12</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_13')">Warehouse 13</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_14')">Warehouse 14</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_15')">Warehouse 15</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_16')">Warehouse 16</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_17')">Warehouse 17</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_18')">Warehouse 18</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_19')">Warehouse 19</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_20')">Warehouse 20</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_21')">Warehouse 21</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_22')">Warehouse 22</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_23')">Warehouse 23</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_24')">Warehouse 24</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_25')">Warehouse 25</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_26')">Warehouse 26</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_27')">Warehouse 27</button>
-                        <button class="filter-btn" onclick="filterApprovals('warehouse_28')">Warehouse 28</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_1')">Salem</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_2')">Vellore</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_3')">Chennai Tyre</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_4')">Chennai Woods Road</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_5')">Bangalore Tyre</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_6')">Yeswanthpur</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_7')">Hubli</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_8')">Mangalore</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_9')">Hyderabad</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_10')">Vijayawada</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_11')">Vishakapatinam</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_12')">Kolkata</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_13')">Patna</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_14')">Raipur</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_15')">Bhubaneshwar</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_16')">Pune</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_17')">Bhiwandi</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_18')">Nagpur</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_19')">Ahmedabad</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_20')">Gurgaon</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_21')">Jaipur</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_22')">Lucknow</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_23')">Ghaziabad</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_24')">Manjumel</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_25')">Namakal</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_26')">Madurai Aritapatti</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_27')">Madurai Ellis Nagar</button>
+                        <button class="filter-btn" onclick="filterApprovals('warehouse_28')">Bhopal</button>
                     </div>
                 </div>
 
@@ -1031,34 +1302,34 @@
                         <div class="form-group">
                             <label for="budgetWarehouse">Warehouse</label>
                             <select id="budgetWarehouse" onchange="loadBudgetVisualization(); loadBudgetManagement()">
-                                <option value="warehouse_1">Warehouse 1</option>
-                                <option value="warehouse_2">Warehouse 2</option>
-                                <option value="warehouse_3">Warehouse 3</option>
-                                <option value="warehouse_4">Warehouse 4</option>
-                                <option value="warehouse_5">Warehouse 5</option>
-                                <option value="warehouse_6">Warehouse 6</option>
-                                <option value="warehouse_7">Warehouse 7</option>
-                                <option value="warehouse_8">Warehouse 8</option>
-                                <option value="warehouse_9">Warehouse 9</option>
-                                <option value="warehouse_10">Warehouse 10</option>
-                                <option value="warehouse_11">Warehouse 11</option>
-                                <option value="warehouse_12">Warehouse 12</option>
-                                <option value="warehouse_13">Warehouse 13</option>
-                                <option value="warehouse_14">Warehouse 14</option>
-                                <option value="warehouse_15">Warehouse 15</option>
-                                <option value="warehouse_16">Warehouse 16</option>
-                                <option value="warehouse_17">Warehouse 17</option>
-                                <option value="warehouse_18">Warehouse 18</option>
-                                <option value="warehouse_19">Warehouse 19</option>
-                                <option value="warehouse_20">Warehouse 20</option>
-                                <option value="warehouse_21">Warehouse 21</option>
-                                <option value="warehouse_22">Warehouse 22</option>
-                                <option value="warehouse_23">Warehouse 23</option>
-                                <option value="warehouse_24">Warehouse 24</option>
-                                <option value="warehouse_25">Warehouse 25</option>
-                                <option value="warehouse_26">Warehouse 26</option>
-                                <option value="warehouse_27">Warehouse 27</option>
-                                <option value="warehouse_28">Warehouse 28</option>
+                                <option value="warehouse_1">Salem</option>
+                                <option value="warehouse_2">Vellore</option>
+                                <option value="warehouse_3">Chennai Tyre</option>
+                                <option value="warehouse_4">Chennai Woods Road</option>
+                                <option value="warehouse_5">Bangalore Tyre</option>
+                                <option value="warehouse_6">Yeswanthpur</option>
+                                <option value="warehouse_7">Hubli</option>
+                                <option value="warehouse_8">Mangalore</option>
+                                <option value="warehouse_9">Hyderabad</option>
+                                <option value="warehouse_10">Vijayawada</option>
+                                <option value="warehouse_11">Vishakapatinam</option>
+                                <option value="warehouse_12">Kolkata</option>
+                                <option value="warehouse_13">Patna</option>
+                                <option value="warehouse_14">Raipur</option>
+                                <option value="warehouse_15">Bhubaneshwar</option>
+                                <option value="warehouse_16">Pune</option>
+                                <option value="warehouse_17">Bhiwandi</option>
+                                <option value="warehouse_18">Nagpur</option>
+                                <option value="warehouse_19">Ahmedabad</option>
+                                <option value="warehouse_20">Gurgaon</option>
+                                <option value="warehouse_21">Jaipur</option>
+                                <option value="warehouse_22">Lucknow</option>
+                                <option value="warehouse_23">Ghaziabad</option>
+                                <option value="warehouse_24">Manjumel</option>
+                                <option value="warehouse_25">Namakal</option>
+                                <option value="warehouse_26">Madurai Aritapatti</option>
+                                <option value="warehouse_27">Madurai Ellis Nagar</option>
+                                <option value="warehouse_28">Bhopal</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -1154,6 +1425,7 @@
                             <option value="">All Categories</option>
                             <option value="Pooja">Pooja</option>
                             <option value="Tea">Tea</option>
+                            <option value="Water">Water</option>
                             <option value="Petrol">Petrol</option>
                             <option value="Lunch">Lunch</option>
                             <option value="Travel">Travel</option>
@@ -1161,6 +1433,16 @@
                             <option value="Maintenance">Maintenance</option>
                             <option value="Utilities">Utilities</option>
                             <option value="Supplies">Supplies</option>
+                            <option value="Rent">Rent</option>
+                            <option value="Staff Transportation">Staff Transportation</option>
+                            <option value="Staff Welfare">Staff Welfare</option>
+                            <option value="Electricity">Electricity</option>
+                            <option value="Stationary">Stationary</option>
+                            <option value="MHE Rental">MHE Rental</option>
+                            <option value="Packing Material">Packing Material</option>
+                            <option value="Internet / Broadband">Internet / Broadband</option>
+                            <option value="Diesel Generator">Diesel Generator</option>
+                            <option value="AMC">AMC</option>
                             <option value="Other">Other</option>
                         </select>
                     </div>
@@ -1177,8 +1459,11 @@
                     <form id="addUserForm">
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="newUsername">Username</label>
-                                <input type="text" id="newUsername" required placeholder="Enter username">
+                                <label for="newEmployeeCode">Employee Code (Username)</label>
+                                <input type="text" id="newEmployeeCode" required placeholder="Enter employee code (this will be the username)">
+                                <small style="color: #6c757d; font-size: 12px; display: block; margin-top: 5px;">
+                                    Employee Code will be used as the username for login
+                                </small>
                             </div>
                             <div class="form-group">
                                 <label for="newPassword">Password</label>
@@ -1190,44 +1475,60 @@
                                 <label for="newName">Full Name</label>
                                 <input type="text" id="newName" required placeholder="Enter full name">
                             </div>
+                        </div>
+                        <div class="form-row">
                             <div class="form-group">
-                                <label for="newEmployeeCode">Employee Code</label>
-                                <input type="text" id="newEmployeeCode" required placeholder="Enter employee code">
+                                <label for="newEmail">Email Address (Optional)</label>
+                                <input type="email" id="newEmail" placeholder="Enter email address (e.g., user@example.com)">
+                                <small style="color: #6c757d; font-size: 12px; display: block; margin-top: 5px;">
+                                    📧 Email (optional - for future email notifications)
+                                </small>
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="newWarehouse">Warehouse</label>
-                                <select id="newWarehouse" required>
-                                    <option value="warehouse_1">Warehouse 1</option>
-                                    <option value="warehouse_2">Warehouse 2</option>
-                                    <option value="warehouse_3">Warehouse 3</option>
-                                    <option value="warehouse_4">Warehouse 4</option>
-                                    <option value="warehouse_5">Warehouse 5</option>
-                                    <option value="warehouse_6">Warehouse 6</option>
-                                    <option value="warehouse_7">Warehouse 7</option>
-                                    <option value="warehouse_8">Warehouse 8</option>
-                                    <option value="warehouse_9">Warehouse 9</option>
-                                    <option value="warehouse_10">Warehouse 10</option>
-                                    <option value="warehouse_11">Warehouse 11</option>
-                                    <option value="warehouse_12">Warehouse 12</option>
-                                    <option value="warehouse_13">Warehouse 13</option>
-                                    <option value="warehouse_14">Warehouse 14</option>
-                                    <option value="warehouse_15">Warehouse 15</option>
-                                    <option value="warehouse_16">Warehouse 16</option>
-                                    <option value="warehouse_17">Warehouse 17</option>
-                                    <option value="warehouse_18">Warehouse 18</option>
-                                    <option value="warehouse_19">Warehouse 19</option>
-                                    <option value="warehouse_20">Warehouse 20</option>
-                                    <option value="warehouse_21">Warehouse 21</option>
-                                    <option value="warehouse_22">Warehouse 22</option>
-                                    <option value="warehouse_23">Warehouse 23</option>
-                                    <option value="warehouse_24">Warehouse 24</option>
-                                    <option value="warehouse_25">Warehouse 25</option>
-                                    <option value="warehouse_26">Warehouse 26</option>
-                                    <option value="warehouse_27">Warehouse 27</option>
-                                    <option value="warehouse_28">Warehouse 28</option>
+                                <label for="newRole">Role</label>
+                                <select id="newRole" required onchange="toggleWarehouseField()">
+                                    <option value="master">Master (Full Access)</option>
+                                    <option value="approver">Approver (All Access Except User Creation)</option>
+                                    <option value="warehouse">Warehouse Entry (Entry Only)</option>
                                 </select>
+                            </div>
+                            <div class="form-group" id="warehouseFieldGroup">
+                                <label for="newWarehouse">Warehouse (Hold Ctrl/Cmd to select multiple)</label>
+                                <select id="newWarehouse" multiple size="8" style="min-height: 150px;">
+                                    <option value="warehouse_1">Salem</option>
+                                    <option value="warehouse_2">Vellore</option>
+                                    <option value="warehouse_3">Chennai Tyre</option>
+                                    <option value="warehouse_4">Chennai Woods Road</option>
+                                    <option value="warehouse_5">Bangalore Tyre</option>
+                                    <option value="warehouse_6">Yeswanthpur</option>
+                                    <option value="warehouse_7">Hubli</option>
+                                    <option value="warehouse_8">Mangalore</option>
+                                    <option value="warehouse_9">Hyderabad</option>
+                                    <option value="warehouse_10">Vijayawada</option>
+                                    <option value="warehouse_11">Vishakapatinam</option>
+                                    <option value="warehouse_12">Kolkata</option>
+                                    <option value="warehouse_13">Patna</option>
+                                    <option value="warehouse_14">Raipur</option>
+                                    <option value="warehouse_15">Bhubaneshwar</option>
+                                    <option value="warehouse_16">Pune</option>
+                                    <option value="warehouse_17">Bhiwandi</option>
+                                    <option value="warehouse_18">Nagpur</option>
+                                    <option value="warehouse_19">Ahmedabad</option>
+                                    <option value="warehouse_20">Gurgaon</option>
+                                    <option value="warehouse_21">Jaipur</option>
+                                    <option value="warehouse_22">Lucknow</option>
+                                    <option value="warehouse_23">Ghaziabad</option>
+                                    <option value="warehouse_24">Manjumel</option>
+                                    <option value="warehouse_25">Namakal</option>
+                                    <option value="warehouse_26">Madurai Aritapatti</option>
+                                    <option value="warehouse_27">Madurai Ellis Nagar</option>
+                                    <option value="warehouse_28">Bhopal</option>
+                                </select>
+                                <small style="color: #6c757d; font-size: 12px; display: block; margin-top: 5px;">
+                                    💡 Tip: Select multiple warehouses or leave empty for "All Warehouses"
+                                </small>
                             </div>
                         </div>
                         <button type="submit" class="btn btn-success">➕ Add User</button>
@@ -1245,63 +1546,978 @@
     </div>
 
     <script>
-        // User Management
-        // Initialize users from localStorage or use default
-        function getUsers() {
+        // ============================================
+        // FIREBASE CONFIGURATION
+        // ============================================
+        // Firebase config for myTVS Expense Tracker
+        const firebaseConfig = {
+            apiKey: "AIzaSyABOT-m3kraMuaTDjGDLmBcESbxL3XpRlA",
+            authDomain: "mytvs-expense-tracker.firebaseapp.com",
+            projectId: "mytvs-expense-tracker",
+            storageBucket: "mytvs-expense-tracker.firebasestorage.app",
+            messagingSenderId: "653659771144",
+            appId: "1:653659771144:web:7ebd5e188e94e19666dcbd",
+            measurementId: "G-JQ5MQ08SMH"
+        };
+        
+        // Initialize Firebase (only if config is provided)
+        let db = null;
+        let useFirebase = false;
+        
+        if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
+            try {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                useFirebase = true;
+                console.log('✅ Firebase initialized successfully');
+            } catch (error) {
+                console.error('❌ Firebase initialization error:', error);
+                useFirebase = false;
+            }
+        } else {
+            console.log('ℹ️ Firebase not configured - using localStorage');
+        }
+        
+        // ============================================
+        // GMAIL EMAIL SERVER CONFIGURATION
+        // ============================================
+        // Replace with your email server URL
+        // Local development: http://localhost:3000
+        // Production: https://your-server-url.com (Railway, Render, Heroku, etc.)
+        const EMAIL_SERVER_URL = 'http://localhost:3000'; // Change this to your server URL
+        
+        let emailServerConfigured = false;
+        if (EMAIL_SERVER_URL && EMAIL_SERVER_URL !== 'YOUR_SERVER_URL') {
+            emailServerConfigured = true;
+            console.log('✅ Gmail email server configured:', EMAIL_SERVER_URL);
+        } else {
+            console.log('ℹ️ Email server not configured - email notifications will be disabled');
+            console.log('ℹ️ To enable: Update EMAIL_SERVER_URL and start email-server.js');
+        }
+        
+        // ============================================
+        // 2ND LEVEL APPROVAL CONFIGURATION
+        // ============================================
+        // Set the username of the 2nd level approver (only 1 ID)
+        // This user will be the final approver for all transactions
+        const SECOND_LEVEL_APPROVER_ID = 'K01706'; // Varadarajan Krishnamachari - 2nd Level Approver
+        
+        // Check if 2nd level approval is enabled
+        const ENABLE_2ND_LEVEL_APPROVAL = true; // Set to false to disable 2nd level approval
+        
+        // ============================================
+        // EMAIL SENDING FUNCTIONS
+        // ============================================
+        
+        async function sendUserCreationEmail(userEmail, userName, username, password, role) {
+            // Email functionality disabled - will be enabled after configuration
+            // if (!emailServerConfigured) {
+            //     console.log('ℹ️ Email server not configured - skipping email notification');
+            //     return;
+            // }
+            // 
+            // try {
+            //     const response = await fetch(`${EMAIL_SERVER_URL}/api/send-user-email`, {
+            //         method: 'POST',
+            //         headers: {
+            //             'Content-Type': 'application/json',
+            //         },
+            //         body: JSON.stringify({
+            //             to_email: userEmail,
+            //             user_name: userName,
+            //             username: username,
+            //             password: password,
+            //             role: role
+            //         })
+            //     });
+            //     
+            //     const result = await response.json();
+            //     if (result.success) {
+            //         console.log('✅ User creation email sent successfully');
+            //     } else {
+            //         throw new Error(result.error || 'Failed to send email');
+            //     }
+            // } catch (error) {
+            //     console.error('❌ Error sending user creation email:', error);
+            //     // Don't throw error - email failure shouldn't block user creation
+            // }
+            return; // Email disabled
+        }
+        
+        async function sendExpenseSubmissionEmail(expense, userEmail, userName) {
+            // Email functionality disabled - will be enabled after configuration
+            return; // Email disabled
+        }
+        
+        async function sendApprovalEmail(expense, action, approverName) {
+            // Email functionality disabled - will be enabled after configuration
+            return; // Email disabled
+        }
+        
+        // ============================================
+        // DATA SERVICE FUNCTIONS (Firebase or localStorage)
+        // ============================================
+        
+        // Users Service
+        async function getUsers() {
+            if (useFirebase && db) {
+                try {
+                    const snapshot = await db.collection('users').get();
+                    const users = {};
+                    snapshot.forEach(doc => {
+                        users[doc.id] = doc.data();
+                    });
+                    
+                    // Ensure admin user exists
+                    if (!users['admin']) {
+                        await saveUser('admin', { password: 'admin123', role: 'master', name: 'Master Admin' });
+                        users['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
+                    }
+                    
+                    return users;
+                } catch (error) {
+                    console.error('Error loading users from Firebase:', error);
+                    return getUsersLocalStorage();
+                }
+            } else {
+                return getUsersLocalStorage();
+            }
+        }
+        
+        function getUsersLocalStorage() {
             const storedUsers = localStorage.getItem('warehouseUsers');
             if (storedUsers) {
-                return JSON.parse(storedUsers);
+                const parsedUsers = JSON.parse(storedUsers);
+                const cleanedUsers = {};
+                Object.keys(parsedUsers).forEach(username => {
+                    if (username === 'admin') {
+                        cleanedUsers[username] = parsedUsers[username];
+                    } else if (!username.startsWith('warehouse_')) {
+                        cleanedUsers[username] = parsedUsers[username];
+                    }
+                });
+                
+                if (!cleanedUsers['admin']) {
+                    cleanedUsers['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
+                }
+                
+                localStorage.setItem('warehouseUsers', JSON.stringify(cleanedUsers));
+                return cleanedUsers;
             } else {
-                // Initial users
                 const defaultUsers = {
-                    'admin': { password: 'admin123', role: 'master', name: 'Master Admin' },
-                    'warehouse_1': { password: 'pass123', role: 'warehouse', name: 'Warehouse 1 Manager', warehouse: 'warehouse_1' },
-                    'warehouse_2': { password: 'pass123', role: 'warehouse', name: 'Warehouse 2 Manager', warehouse: 'warehouse_2' },
-                    'warehouse_3': { password: 'pass123', role: 'warehouse', name: 'Warehouse 3 Manager', warehouse: 'warehouse_3' },
-                    'warehouse_4': { password: 'pass123', role: 'warehouse', name: 'Warehouse 4 Manager', warehouse: 'warehouse_4' },
-                    'warehouse_5': { password: 'pass123', role: 'warehouse', name: 'Warehouse 5 Manager', warehouse: 'warehouse_5' },
-                    'warehouse_6': { password: 'pass123', role: 'warehouse', name: 'Warehouse 6 Manager', warehouse: 'warehouse_6' },
-                    'warehouse_7': { password: 'pass123', role: 'warehouse', name: 'Warehouse 7 Manager', warehouse: 'warehouse_7' },
-                    'warehouse_8': { password: 'pass123', role: 'warehouse', name: 'Warehouse 8 Manager', warehouse: 'warehouse_8' },
-                    'warehouse_9': { password: 'pass123', role: 'warehouse', name: 'Warehouse 9 Manager', warehouse: 'warehouse_9' },
-                    'warehouse_10': { password: 'pass123', role: 'warehouse', name: 'Warehouse 10 Manager', warehouse: 'warehouse_10' },
-                    'warehouse_11': { password: 'pass123', role: 'warehouse', name: 'Warehouse 11 Manager', warehouse: 'warehouse_11' },
-                    'warehouse_12': { password: 'pass123', role: 'warehouse', name: 'Warehouse 12 Manager', warehouse: 'warehouse_12' },
-                    'warehouse_13': { password: 'pass123', role: 'warehouse', name: 'Warehouse 13 Manager', warehouse: 'warehouse_13' },
-                    'warehouse_14': { password: 'pass123', role: 'warehouse', name: 'Warehouse 14 Manager', warehouse: 'warehouse_14' },
-                    'warehouse_15': { password: 'pass123', role: 'warehouse', name: 'Warehouse 15 Manager', warehouse: 'warehouse_15' },
-                    'warehouse_16': { password: 'pass123', role: 'warehouse', name: 'Warehouse 16 Manager', warehouse: 'warehouse_16' },
-                    'warehouse_17': { password: 'pass123', role: 'warehouse', name: 'Warehouse 17 Manager', warehouse: 'warehouse_17' },
-                    'warehouse_18': { password: 'pass123', role: 'warehouse', name: 'Warehouse 18 Manager', warehouse: 'warehouse_18' },
-                    'warehouse_19': { password: 'pass123', role: 'warehouse', name: 'Warehouse 19 Manager', warehouse: 'warehouse_19' },
-                    'warehouse_20': { password: 'pass123', role: 'warehouse', name: 'Warehouse 20 Manager', warehouse: 'warehouse_20' },
-                    'warehouse_21': { password: 'pass123', role: 'warehouse', name: 'Warehouse 21 Manager', warehouse: 'warehouse_21' },
-                    'warehouse_22': { password: 'pass123', role: 'warehouse', name: 'Warehouse 22 Manager', warehouse: 'warehouse_22' },
-                    'warehouse_23': { password: 'pass123', role: 'warehouse', name: 'Warehouse 23 Manager', warehouse: 'warehouse_23' },
-                    'warehouse_24': { password: 'pass123', role: 'warehouse', name: 'Warehouse 24 Manager', warehouse: 'warehouse_24' },
-                    'warehouse_25': { password: 'pass123', role: 'warehouse', name: 'Warehouse 25 Manager', warehouse: 'warehouse_25' },
-                    'warehouse_26': { password: 'pass123', role: 'warehouse', name: 'Warehouse 26 Manager', warehouse: 'warehouse_26' },
-                    'warehouse_27': { password: 'pass123', role: 'warehouse', name: 'Warehouse 27 Manager', warehouse: 'warehouse_27' },
-                    'warehouse_28': { password: 'pass123', role: 'warehouse', name: 'Warehouse 28 Manager', warehouse: 'warehouse_28' }
+                    'admin': { password: 'admin123', role: 'master', name: 'Master Admin' }
                 };
                 localStorage.setItem('warehouseUsers', JSON.stringify(defaultUsers));
                 return defaultUsers;
             }
         }
         
-        let users = getUsers();
-
+        async function saveUser(username, userData) {
+            if (useFirebase && db) {
+                try {
+                    await db.collection('users').doc(username).set(userData);
+                    return true;
+                } catch (error) {
+                    console.error('Error saving user to Firebase:', error);
+                    saveUserLocalStorage(username, userData);
+                    return false;
+                }
+            } else {
+                saveUserLocalStorage(username, userData);
+                return true;
+            }
+        }
+        
+        function saveUserLocalStorage(username, userData) {
+            const users = getUsersLocalStorage();
+            users[username] = userData;
+            localStorage.setItem('warehouseUsers', JSON.stringify(users));
+        }
+        
+        async function deleteUserFirebase(username) {
+            if (useFirebase && db) {
+                try {
+                    await db.collection('users').doc(username).delete();
+                    return true;
+                } catch (error) {
+                    console.error('Error deleting user from Firebase:', error);
+                    return false;
+                }
+            }
+            return false;
+        }
+        
+        // Expenses Service
+        async function getExpenses() {
+            if (useFirebase && db) {
+                try {
+                    const snapshot = await db.collection('expenses').orderBy('date', 'desc').get();
+                    return snapshot.docs.map(doc => {
+                        const data = doc.data();
+                        // Reconstruct invoiceFile from flattened fields
+                        if (data.invoiceFileName || data.invoiceFileData) {
+                            data.invoiceFile = {
+                                filename: data.invoiceFileName || null,
+                                type: data.invoiceFileType || null,
+                                size: data.invoiceFileSize || null,
+                                data: data.invoiceFileData || null,
+                                tooLarge: data.invoiceFileTooLarge || false
+                            };
+                            // Remove flattened fields
+                            delete data.invoiceFileName;
+                            delete data.invoiceFileType;
+                            delete data.invoiceFileSize;
+                            delete data.invoiceFileData;
+                            delete data.invoiceFileTooLarge;
+                        }
+                        return { id: doc.id, ...data };
+                    });
+                } catch (error) {
+                    console.error('Error loading expenses from Firebase:', error);
+                    return getExpensesLocalStorage();
+                }
+            } else {
+                return getExpensesLocalStorage();
+            }
+        }
+        
+        function getExpensesLocalStorage() {
+            return JSON.parse(localStorage.getItem('warehouseExpenses')) || [];
+        }
+        
+        async function saveExpense(expense) {
+            if (useFirebase && db) {
+                try {
+                    // Clean the expense object - Firebase doesn't like undefined values
+                    // Also flatten invoiceFile for Firebase compatibility
+                    const cleanExpense = {};
+                    Object.keys(expense).forEach(key => {
+                        if (expense[key] !== undefined && expense[key] !== null) {
+                            if (key === 'invoiceFile' && expense[key] && typeof expense[key] === 'object') {
+                                // Flatten invoiceFile object for Firebase
+                                cleanExpense['invoiceFileName'] = expense[key].filename || null;
+                                cleanExpense['invoiceFileType'] = expense[key].type || null;
+                                cleanExpense['invoiceFileSize'] = expense[key].size || null;
+                                // Check base64 size before storing (Firestore 1MB limit = 1,048,487 bytes)
+                                const base64Data = expense[key].data || null;
+                                if (base64Data && base64Data.length > 1048487) {
+                                    console.warn('Base64 data too large for Firestore, storing without file data');
+                                    cleanExpense['invoiceFileData'] = null;
+                                    cleanExpense['invoiceFileTooLarge'] = true;
+                                } else {
+                                    cleanExpense['invoiceFileData'] = base64Data;
+                                }
+                            } else {
+                                cleanExpense[key] = expense[key];
+                            }
+                        }
+                    });
+                    
+                    if (expense.id && typeof expense.id === 'string' && expense.id.length > 0) {
+                        await db.collection('expenses').doc(expense.id).set(cleanExpense);
+                    } else {
+                        const docRef = await db.collection('expenses').add(cleanExpense);
+                        expense.id = docRef.id;
+                        cleanExpense.id = docRef.id;
+                    }
+                    // Also save to localStorage as backup (without large file data)
+                    saveExpenseLocalStorage(expense, true); // Pass flag to skip large files
+                    return true;
+                } catch (error) {
+                    console.error('Error saving expense to Firebase:', error);
+                    console.error('Error details:', error.code, error.message);
+                    // Fallback to localStorage (without large file data)
+                    try {
+                        saveExpenseLocalStorage(expense, true);
+                    } catch (localError) {
+                        console.error('Error saving to localStorage:', localError);
+                        // If localStorage fails, at least the expense is saved in Firebase
+                    }
+                    throw error; // Re-throw to show error message
+                }
+            } else {
+                saveExpenseLocalStorage(expense, true); // Skip large files in localStorage
+                return true;
+            }
+        }
+        
+        function saveExpenseLocalStorage(expense, skipLargeFiles = false) {
+            const expenses = getExpensesLocalStorage();
+            
+            // Create a copy of expense for localStorage
+            const expenseForStorage = { ...expense };
+            
+            // If skipLargeFiles is true, remove base64 data to prevent quota exceeded
+            if (skipLargeFiles && expenseForStorage.invoiceFile && expenseForStorage.invoiceFile.data) {
+                expenseForStorage.invoiceFile = {
+                    filename: expenseForStorage.invoiceFile.filename,
+                    type: expenseForStorage.invoiceFile.type,
+                    size: expenseForStorage.invoiceFile.size,
+                    data: null // Don't store base64 in localStorage
+                };
+            }
+            
+            if (expense.id) {
+                const index = expenses.findIndex(e => e.id === expense.id);
+                if (index !== -1) {
+                    expenses[index] = expenseForStorage;
+                } else {
+                    expenses.push(expenseForStorage);
+                }
+            } else {
+                expenseForStorage.id = Date.now().toString();
+                expenses.push(expenseForStorage);
+            }
+            
+            try {
+                localStorage.setItem('warehouseExpenses', JSON.stringify(expenses));
+            } catch (error) {
+                if (error.name === 'QuotaExceededError') {
+                    console.warn('localStorage quota exceeded. Storing expenses without file data.');
+                    // Remove all file data from all expenses and try again
+                    const expensesWithoutFiles = expenses.map(e => {
+                        const exp = { ...e };
+                        if (exp.invoiceFile && exp.invoiceFile.data) {
+                            exp.invoiceFile = {
+                                filename: exp.invoiceFile.filename,
+                                type: exp.invoiceFile.type,
+                                size: exp.invoiceFile.size,
+                                data: null
+                            };
+                        }
+                        return exp;
+                    });
+                    localStorage.setItem('warehouseExpenses', JSON.stringify(expensesWithoutFiles));
+                } else {
+                    throw error;
+                }
+            }
+        }
+        
+        async function saveAllExpenses(expensesArray) {
+            if (useFirebase && db) {
+                try {
+                    const batch = db.batch();
+                    expensesArray.forEach(expense => {
+                        // Flatten invoiceFile for Firebase
+                        const cleanExpense = {};
+                        Object.keys(expense).forEach(key => {
+                            if (expense[key] !== undefined && expense[key] !== null) {
+                                if (key === 'invoiceFile' && expense[key] && typeof expense[key] === 'object') {
+                                    cleanExpense['invoiceFileName'] = expense[key].filename || null;
+                                    cleanExpense['invoiceFileType'] = expense[key].type || null;
+                                    cleanExpense['invoiceFileSize'] = expense[key].size || null;
+                                    cleanExpense['invoiceFileData'] = expense[key].data || null;
+                                } else {
+                                    cleanExpense[key] = expense[key];
+                                }
+                            }
+                        });
+                        const docRef = db.collection('expenses').doc(expense.id);
+                        batch.set(docRef, cleanExpense);
+                    });
+                    await batch.commit();
+                    return true;
+                } catch (error) {
+                    console.error('Error saving expenses to Firebase:', error);
+                    // Try to save to localStorage without large files
+                    try {
+                        const expensesWithoutFiles = expensesArray.map(e => {
+                            const exp = { ...e };
+                            if (exp.invoiceFile && exp.invoiceFile.data) {
+                                exp.invoiceFile = {
+                                    filename: exp.invoiceFile.filename,
+                                    type: exp.invoiceFile.type,
+                                    size: exp.invoiceFile.size,
+                                    data: null
+                                };
+                            }
+                            return exp;
+                        });
+                        localStorage.setItem('warehouseExpenses', JSON.stringify(expensesWithoutFiles));
+                    } catch (localError) {
+                        console.error('Error saving to localStorage:', localError);
+                    }
+                    return false;
+                }
+            } else {
+                // Save to localStorage without large files
+                const expensesWithoutFiles = expensesArray.map(e => {
+                    const exp = { ...e };
+                    if (exp.invoiceFile && exp.invoiceFile.data) {
+                        exp.invoiceFile = {
+                            filename: exp.invoiceFile.filename,
+                            type: exp.invoiceFile.type,
+                            size: exp.invoiceFile.size,
+                            data: null
+                        };
+                    }
+                    return exp;
+                });
+                localStorage.setItem('warehouseExpenses', JSON.stringify(expensesWithoutFiles));
+                return true;
+            }
+        }
+        
+        async function deleteExpenseFirebase(expenseId) {
+            // Delete functionality disabled - expenses cannot be deleted
+            console.warn('Delete expense functionality has been disabled');
+            return false;
+        }
+        
+        // Clear all expenses from Firebase and localStorage
+        async function clearAllExpenses() {
+            try {
+                if (useFirebase && db) {
+                    // Get all expenses from Firebase
+                    const snapshot = await db.collection('expenses').get();
+                    
+                    // Delete all expenses in batches (Firestore batch limit is 500)
+                    const batches = [];
+                    let currentBatch = db.batch();
+                    let count = 0;
+                    
+                    snapshot.docs.forEach((doc) => {
+                        currentBatch.delete(doc.ref);
+                        count++;
+                        
+                        if (count >= 500) {
+                            batches.push(currentBatch);
+                            currentBatch = db.batch();
+                            count = 0;
+                        }
+                    });
+                    
+                    if (count > 0) {
+                        batches.push(currentBatch);
+                    }
+                    
+                    // Commit all batches
+                    for (const batchToCommit of batches) {
+                        await batchToCommit.commit();
+                    }
+                    
+                    console.log('All expenses cleared from Firebase');
+                }
+                
+                // Clear from localStorage
+                localStorage.removeItem('warehouseExpenses');
+                console.log('All expenses cleared from localStorage');
+                
+                // Clear from memory
+                expenses = [];
+                
+                // Refresh the display
+                displayExpenses();
+                updateSummary();
+                
+                return true;
+            } catch (error) {
+                console.error('Error clearing expenses:', error);
+                throw error;
+            }
+        }
+        
+        // Budgets Service
+        async function getBudgets() {
+            if (useFirebase && db) {
+                try {
+                    const snapshot = await db.collection('budgets').get();
+                    const budgets = {};
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        const key = `${data.warehouse}_${data.month}`;
+                        if (!budgets[key]) {
+                            budgets[key] = {};
+                        }
+                        budgets[key][data.category] = data.amount;
+                    });
+                    return budgets;
+                } catch (error) {
+                    console.error('Error loading budgets from Firebase:', error);
+                    return getBudgetsLocalStorage();
+                }
+            } else {
+                return getBudgetsLocalStorage();
+            }
+        }
+        
+        function getBudgetsLocalStorage() {
+            return JSON.parse(localStorage.getItem('warehouseBudgets')) || {};
+        }
+        
+        async function saveBudget(warehouse, month, category, amount) {
+            if (useFirebase && db) {
+                try {
+                    const budgetKey = `${warehouse}_${month}_${category}`;
+                    await db.collection('budgets').doc(budgetKey).set({
+                        warehouse: warehouse,
+                        month: month,
+                        category: category,
+                        amount: amount
+                    });
+                    return true;
+                } catch (error) {
+                    console.error('Error saving budget to Firebase:', error);
+                    saveBudgetLocalStorage(warehouse, month, category, amount);
+                    return false;
+                }
+            } else {
+                saveBudgetLocalStorage(warehouse, month, category, amount);
+                return true;
+            }
+        }
+        
+        function saveBudgetLocalStorage(warehouse, month, category, amount) {
+            const budgets = getBudgetsLocalStorage();
+            const key = `${warehouse}_${month}`;
+            if (!budgets[key]) {
+                budgets[key] = {};
+            }
+            budgets[key][category] = amount;
+            localStorage.setItem('warehouseBudgets', JSON.stringify(budgets));
+        }
+        
+        async function saveAllBudgets(budgetsObj) {
+            if (useFirebase && db) {
+                try {
+                    const batch = db.batch();
+                    Object.keys(budgetsObj).forEach(key => {
+                        const [warehouse, month] = key.split('_');
+                        Object.keys(budgetsObj[key]).forEach(category => {
+                            const budgetKey = `${warehouse}_${month}_${category}`;
+                            const docRef = db.collection('budgets').doc(budgetKey);
+                            batch.set(docRef, {
+                                warehouse: warehouse,
+                                month: month,
+                                category: category,
+                                amount: budgetsObj[key][category]
+                            });
+                        });
+                    });
+                    await batch.commit();
+                    return true;
+                } catch (error) {
+                    console.error('Error saving budgets to Firebase:', error);
+                    localStorage.setItem('warehouseBudgets', JSON.stringify(budgetsObj));
+                    return false;
+                }
+            } else {
+                localStorage.setItem('warehouseBudgets', JSON.stringify(budgetsObj));
+                return true;
+            }
+        }
+        
+        // Initialize budgets for 3 warehouses (Madurai Aritapatti, Madurai Ellis Nagar, Gurgaon)
+        async function initializeBudgetsForThreeWarehouses() {
+            const currentDate = new Date();
+            const month = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+            
+            // Budget data from the table
+            const budgetData = {
+                'warehouse_26': { // Madurai Aritapatti
+                    'Tea': 15392,
+                    'Lunch': 57720,
+                    'Water': 10400,
+                    'Pooja': 5000,
+                    'Staff Transportation': 65000,
+                    'Staff Welfare': 15000,
+                    'Electricity': 100000,
+                    'Stationary': 20000,
+                    'MHE Rental': 40000,
+                    'Packing Material': 40000,
+                    'Internet / Broadband': 25000,
+                    'Diesel Generator': 20000,
+                    'AMC': 16000
+                },
+                'warehouse_27': { // Madurai Ellis Nagar
+                    'Tea': 3536,
+                    'Lunch': 0,
+                    'Water': 1040,
+                    'Pooja': 2000,
+                    'Staff Transportation': 0,
+                    'Staff Welfare': 5000,
+                    'Electricity': 7500,
+                    'Stationary': 5000,
+                    'MHE Rental': 0,
+                    'Packing Material': 5000,
+                    'Internet / Broadband': 2000,
+                    'Diesel Generator': 1000,
+                    'AMC': 5000
+                },
+                'warehouse_20': { // Gurgaon
+                    'Tea': 18720,
+                    'Lunch': 70200,
+                    'Water': 10400,
+                    'Pooja': 2000,
+                    'Staff Transportation': 0,
+                    'Staff Welfare': 15000,
+                    'Electricity': 90000,
+                    'Stationary': 25000,
+                    'MHE Rental': 250000,
+                    'Packing Material': 25000,
+                    'Internet / Broadband': 10000,
+                    'Diesel Generator': 20000,
+                    'AMC': 15000
+                }
+            };
+            
+            // Save budgets for each warehouse
+            for (const [warehouse, categories] of Object.entries(budgetData)) {
+                for (const [category, amount] of Object.entries(categories)) {
+                    await saveBudget(warehouse, month, category, amount);
+                }
+            }
+            
+            // Reload budgets
+            budgets = await getBudgets();
+            console.log('✅ Budgets initialized for warehouse_26, warehouse_27, and warehouse_20');
+        }
+        
+        // ============================================
+        // User Management
+        // ============================================
+        
+        // Initialize data (will be loaded asynchronously)
+        let users = {};
         let currentUser = null;
         let currentWarehouse = null;
-        let expenses = JSON.parse(localStorage.getItem('warehouseExpenses')) || [];
-        let budgets = JSON.parse(localStorage.getItem('warehouseBudgets')) || {};
+        let expenses = [];
+        let budgets = {};
         let currentFilter = 'all';
         let currentApprovalFilter = 'all';
+        
+        // Performance optimization: Debounce function
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        
+        // Debounced update functions for better performance
+        const debouncedDisplayExpenses = debounce(() => {
+            requestAnimationFrame(() => {
+                displayExpenses();
+            });
+        }, 300);
+        
+        const debouncedUpdateSummary = debounce(() => {
+            requestAnimationFrame(() => {
+                updateSummary();
+            });
+        }, 300);
+        
+        const debouncedDisplayApprovals = debounce(() => {
+            requestAnimationFrame(() => {
+                displayApprovals();
+            });
+        }, 300);
+        
+        // Load initial data
+        (async function initializeData() {
+            users = await getUsers();
+            // Clear all old expenses on first load
+            const expensesCleared = localStorage.getItem('expensesCleared');
+            if (!expensesCleared) {
+                try {
+                    await clearAllExpenses();
+                    localStorage.setItem('expensesCleared', 'true');
+                    console.log('All old expenses have been cleared');
+                } catch (error) {
+                    console.error('Error clearing expenses:', error);
+                }
+            }
+            expenses = await getExpenses();
+            budgets = await getBudgets();
+            
+            // Initialize budgets for 3 warehouses on first load
+            const budgetsInitialized = localStorage.getItem('budgetsInitialized');
+            if (!budgetsInitialized) {
+                try {
+                    await initializeBudgetsForThreeWarehouses();
+                    localStorage.setItem('budgetsInitialized', 'true');
+                    console.log('Budgets initialized for warehouse_26, warehouse_27, and warehouse_20');
+                } catch (error) {
+                    console.error('Error initializing budgets:', error);
+                }
+            }
+            
+            // Set up real-time listener for expenses (Firebase only)
+            if (useFirebase && db) {
+                db.collection('expenses').orderBy('date', 'desc').onSnapshot(snapshot => {
+                    expenses = snapshot.docs.map(doc => {
+                        const data = doc.data();
+                        // Reconstruct invoiceFile from flattened fields
+                        if (data.invoiceFileName || data.invoiceFileData) {
+                            data.invoiceFile = {
+                                filename: data.invoiceFileName || null,
+                                type: data.invoiceFileType || null,
+                                size: data.invoiceFileSize || null,
+                                data: data.invoiceFileData || null,
+                                tooLarge: data.invoiceFileTooLarge || false
+                            };
+                            // Remove flattened fields
+                            delete data.invoiceFileName;
+                            delete data.invoiceFileType;
+                            delete data.invoiceFileSize;
+                            delete data.invoiceFileData;
+                            delete data.invoiceFileTooLarge;
+                        }
+                        return { id: doc.id, ...data };
+                    });
+                    if (currentUser) {
+                        // Use debounced functions to prevent excessive updates
+                        debouncedDisplayExpenses();
+                        debouncedUpdateSummary();
+                        // Refresh approvals if on approvals tab
+                        if (document.getElementById('approvals').classList.contains('active')) {
+                            debouncedDisplayApprovals();
+                        }
+                    }
+                });
+            }
+        })();
+        
+        // Custom Modal Functions
+        function customAlert(message) {
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('customModalOverlay');
+                const title = document.getElementById('customModalTitle');
+                const body = document.getElementById('customModalMessage');
+                const footer = document.getElementById('customModalFooter');
+                
+                title.textContent = 'SCM Petty Cash Expense Management System';
+                body.textContent = message;
+                footer.innerHTML = '<button class="custom-modal-btn custom-modal-btn-primary" onclick="closeCustomModal(); window.customModalResolve(true);">OK</button>';
+                
+                overlay.classList.add('show');
+                
+                // Close on overlay click
+                overlay.onclick = (e) => {
+                    if (e.target === overlay) {
+                        closeCustomModal();
+                        resolve(true);
+                    }
+                };
+                
+                window.customModalResolve = resolve;
+            });
+        }
+        
+        function customConfirm(message) {
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('customModalOverlay');
+                const title = document.getElementById('customModalTitle');
+                const body = document.getElementById('customModalMessage');
+                const footer = document.getElementById('customModalFooter');
+                
+                title.textContent = 'SCM Petty Cash Expense Management System';
+                body.textContent = message;
+                footer.innerHTML = `
+                    <button class="custom-modal-btn custom-modal-btn-secondary" onclick="closeCustomModal(); window.customModalResolve(false);">Cancel</button>
+                    <button class="custom-modal-btn custom-modal-btn-primary" onclick="closeCustomModal(); window.customModalResolve(true);">OK</button>
+                `;
+                
+                overlay.classList.add('show');
+                
+                // Close on overlay click (cancel)
+                overlay.onclick = (e) => {
+                    if (e.target === overlay) {
+                        closeCustomModal();
+                        resolve(false);
+                    }
+                };
+                
+                window.customModalResolve = resolve;
+            });
+        }
+        
+        function closeCustomModal() {
+            const overlay = document.getElementById('customModalOverlay');
+            overlay.classList.remove('show');
+        }
+        
+        // Override native alert and confirm
+        window.alert = customAlert;
+        window.confirm = customConfirm;
+        
+        // Password visibility toggle
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById('password');
+            const toggleIcon = document.getElementById('passwordToggleIcon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.textContent = 'Hide';
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.textContent = 'Show';
+            }
+        }
+        
+        // Helper function to check if user has access to a warehouse
+        // Warehouse name mapping
+        const warehouseNames = {
+            'warehouse_1': 'Salem',
+            'warehouse_2': 'Vellore',
+            'warehouse_3': 'Chennai Tyre',
+            'warehouse_4': 'Chennai Woods Road',
+            'warehouse_5': 'Bangalore Tyre',
+            'warehouse_6': 'Yeswanthpur',
+            'warehouse_7': 'Hubli',
+            'warehouse_8': 'Mangalore',
+            'warehouse_9': 'Hyderabad',
+            'warehouse_10': 'Vijayawada',
+            'warehouse_11': 'Vishakapatinam',
+            'warehouse_12': 'Kolkata',
+            'warehouse_13': 'Patna',
+            'warehouse_14': 'Raipur',
+            'warehouse_15': 'Bhubaneshwar',
+            'warehouse_16': 'Pune',
+            'warehouse_17': 'Bhiwandi',
+            'warehouse_18': 'Nagpur',
+            'warehouse_19': 'Ahmedabad',
+            'warehouse_20': 'Gurgaon',
+            'warehouse_21': 'Jaipur',
+            'warehouse_22': 'Lucknow',
+            'warehouse_23': 'Ghaziabad',
+            'warehouse_24': 'Manjumel',
+            'warehouse_25': 'Namakal',
+            'warehouse_26': 'Madurai Aritapatti',
+            'warehouse_27': 'Madurai Ellis Nagar',
+            'warehouse_28': 'Bhopal'
+        };
+        
+        // Get warehouse display name
+        function getWarehouseName(warehouseId) {
+            return warehouseNames[warehouseId] || warehouseId;
+        }
+        
+        function hasWarehouseAccess(user, warehouse) {
+            // Second-level approver always has access to all warehouses
+            if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
+                return true;
+            }
+            // If warehouse field is empty or not set, user has access to all warehouses
+            if (!user.warehouse || user.warehouse === '' || user.warehouse.trim() === '') {
+                return true; // Empty means all warehouses
+            }
+            // Get assigned warehouses
+            const userWarehouses = user.warehouse.split(',').map(w => w.trim()).filter(w => w);
+            // If all 28 warehouses are assigned, treat it as "all warehouses" access
+            if (userWarehouses.length === 28) {
+                return true;
+            }
+            // Check if warehouse is in user's assigned warehouses list
+            return userWarehouses.includes(warehouse);
+        }
+        
+        // Get list of warehouses accessible to current user
+        // This is based on warehouse assignments during user creation
+        function getUserAccessibleWarehouses() {
+            if (!currentUser || !users[currentUser]) {
+                return []; // No user logged in
+            }
+            const user = users[currentUser];
+            
+            // Second-level approver always has access to all warehouses
+            if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
+                return Array.from({length: 28}, (_, i) => `warehouse_${i + 1}`);
+            }
+            
+            // If warehouse field is empty or not set, user has access to all warehouses
+            if (!user.warehouse || user.warehouse === '' || user.warehouse.trim() === '') {
+                // Empty means all warehouses - return all 28 warehouses
+                return Array.from({length: 28}, (_, i) => `warehouse_${i + 1}`);
+            }
+            
+            // Get assigned warehouses
+            const assignedWarehouses = user.warehouse.split(',').map(w => w.trim()).filter(w => w);
+            
+            // If all 28 warehouses are assigned, treat it as "all warehouses" access
+            if (assignedWarehouses.length === 28) {
+                return Array.from({length: 28}, (_, i) => `warehouse_${i + 1}`);
+            }
+            
+            // Return only assigned warehouses (respects warehouse assignments from user creation)
+            return assignedWarehouses;
+        }
+        
+        // Filter warehouse dropdown options to only show accessible warehouses
+        function filterWarehouseOptions(selectElementId) {
+            const selectElement = document.getElementById(selectElementId);
+            if (!selectElement) return;
+            
+            const accessibleWarehouses = getUserAccessibleWarehouses();
+            
+            // Store all option data before clearing
+            const allOptionsData = Array.from(selectElement.options).map(option => ({
+                value: option.value,
+                text: option.textContent
+            }));
+            
+            // Remove all options first
+            selectElement.innerHTML = '';
+            
+            // Add only accessible warehouses
+            allOptionsData.forEach(optionData => {
+                const warehouseValue = optionData.value;
+                // Keep 'all' option only if user has access to all warehouses
+                if (warehouseValue === 'all') {
+                    if (accessibleWarehouses.length === 28) {
+                        const option = document.createElement('option');
+                        option.value = optionData.value;
+                        option.textContent = optionData.text;
+                        selectElement.appendChild(option);
+                    }
+                } else if (accessibleWarehouses.includes(warehouseValue) || accessibleWarehouses.length === 28) {
+                    const option = document.createElement('option');
+                    option.value = optionData.value;
+                    option.textContent = optionData.text;
+                    selectElement.appendChild(option);
+                }
+            });
+        }
+        
+        // Filter approval filter buttons to only show accessible warehouses
+        function filterApprovalFilterButtons() {
+            const accessibleWarehouses = getUserAccessibleWarehouses();
+            const filterButtons = document.querySelectorAll('#approvals .filter-btn');
+            
+            filterButtons.forEach(button => {
+                const onclickAttr = button.getAttribute('onclick');
+                if (onclickAttr) {
+                    // Extract warehouse value from onclick (e.g., "filterApprovals('warehouse_1')")
+                    const match = onclickAttr.match(/filterApprovals\('([^']+)'\)/);
+                    if (match) {
+                        const warehouseValue = match[1];
+                        if (warehouseValue === 'all') {
+                            // Show 'all' only if user has access to all warehouses
+                            button.style.display = accessibleWarehouses.length === 28 ? '' : 'none';
+                        } else {
+                            // Show button only if warehouse is accessible
+                            button.style.display = accessibleWarehouses.includes(warehouseValue) || accessibleWarehouses.length === 28 ? '' : 'none';
+                        }
+                    }
+                }
+            });
+        }
 
         // Initialize
         document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
         document.getElementById('expenseTime').value = new Date().toTimeString().slice(0, 5);
         document.getElementById('budgetMonth').value = new Date().toISOString().slice(0, 7);
+        
+        // Initialize warehouse field visibility
+        if (document.getElementById('newRole')) {
+            toggleWarehouseField();
+        }
         
         // Toast notification function
         function showToast(type, title, message) {
@@ -1330,11 +2546,16 @@
         }
 
         // Login functionality
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
+            
+            // Ensure users are loaded
+            if (Object.keys(users).length === 0) {
+                users = await getUsers();
+            }
             
             if (users[username] && users[username].password === password) {
                 currentUser = username;
@@ -1344,27 +2565,81 @@
                 document.getElementById('mainApp').style.display = 'block';
                 
                 document.getElementById('currentUser').textContent = users[username].name;
-                document.getElementById('userRole').textContent = users[username].role.toUpperCase();
-                document.getElementById('userRole').className = `user-role ${users[username].role}`;
                 
-                // Show warehouse selector for master users ONLY
+                // Show features based on role
                 if (users[username].role === 'master') {
+                    // Master: Full access
                     document.getElementById('warehouseSelector').style.display = 'block';
                     document.getElementById('usersTab').style.display = 'block';
                     document.getElementById('approvalsTab').style.display = 'block';
+                    // Reload users to ensure cleanup is applied
+                    users = await getUsers();
                     loadUsers();
+                    // Filter warehouse options based on user's warehouse access
+                    filterWarehouseOptions('warehouseSelect');
+                    filterWarehouseOptions('budgetWarehouse');
+                    filterApprovalFilterButtons();
+                    // Remove 'all' option if it exists and set default to first accessible warehouse
+                    const warehouseSelect = document.getElementById('warehouseSelect');
+                    const allOption = warehouseSelect.querySelector('option[value="all"]');
+                    if (allOption) {
+                        allOption.remove();
+                    }
+                    const accessibleWarehouses = getUserAccessibleWarehouses();
+                    if (accessibleWarehouses.length > 0 && (!warehouseSelect.value || warehouseSelect.value === 'all')) {
+                        warehouseSelect.value = accessibleWarehouses[0];
+                        currentWarehouse = accessibleWarehouses[0];
+                    }
+                } else if (users[username].role === 'approver') {
+                    // Approver: All access except user creation
+                    document.getElementById('warehouseSelector').style.display = 'block';
+                    document.getElementById('usersTab').style.display = 'none';
+                    document.getElementById('approvalsTab').style.display = 'block';
+                    // Filter warehouse options based on user's warehouse access
+                    filterWarehouseOptions('warehouseSelect');
+                    filterWarehouseOptions('budgetWarehouse');
+                    filterApprovalFilterButtons();
+                    // Set warehouse selector to first accessible warehouse
+                    const accessibleWarehouses = getUserAccessibleWarehouses();
+                    if (accessibleWarehouses.length > 0) {
+                        document.getElementById('warehouseSelect').value = accessibleWarehouses[0];
+                        currentWarehouse = accessibleWarehouses[0];
                 } else {
-                    // Explicitly hide master-only features for warehouse users
+                        // Fallback if no warehouses assigned
+                        document.getElementById('warehouseSelect').value = 'warehouse_1';
+                        currentWarehouse = 'warehouse_1';
+                    }
+                    // Remove 'all' option if it exists
+                    const warehouseSelect = document.getElementById('warehouseSelect');
+                    const allOption = warehouseSelect.querySelector('option[value="all"]');
+                    if (allOption) {
+                        allOption.remove();
+                    }
+                } else {
+                    // Warehouse: Entry only
                     document.getElementById('warehouseSelector').style.display = 'none';
                     document.getElementById('usersTab').style.display = 'none';
                     document.getElementById('approvalsTab').style.display = 'none';
                 }
                 
-                // Load data
+                // Load data (ensure expenses and budgets are loaded)
+                // Clear all old expenses on first load
+            const expensesCleared = localStorage.getItem('expensesCleared');
+            if (!expensesCleared) {
+                try {
+                    await clearAllExpenses();
+                    localStorage.setItem('expensesCleared', 'true');
+                    console.log('All old expenses have been cleared');
+                } catch (error) {
+                    console.error('Error clearing expenses:', error);
+                }
+            }
+            expenses = await getExpenses();
+                budgets = await getBudgets();
                 displayExpenses();
                 updateSummary();
             } else {
-                alert('Invalid username or password!');
+                await customAlert('Invalid username or password!');
             }
         });
 
@@ -1377,39 +2652,123 @@
         }
         
         // Clear storage functionality
-        function clearStorage() {
-            if (confirm('This will delete all data including expenses and users. Are you sure?')) {
+        async function clearStorage() {
+            const confirmed = await customConfirm('This will delete all data including expenses and users. Are you sure?');
+            if (confirmed) {
                 localStorage.clear();
-                alert('Storage cleared! Page will reload.');
+                await customAlert('Storage cleared! Page will reload.');
                 location.reload();
             }
         }
 
-        // Switch warehouse (for master users)
+        // Switch warehouse (for master users) with performance optimization
         function switchWarehouse() {
-            currentWarehouse = document.getElementById('warehouseSelect').value;
-            if (currentWarehouse === 'all') currentWarehouse = null;
+            const warehouseSelect = document.getElementById('warehouseSelect');
+            currentWarehouse = String(warehouseSelect.value || '').trim();
+            // Safety check: if somehow 'all' is selected, reset to first accessible warehouse
+            if (currentWarehouse === 'all' || !currentWarehouse) {
+                const accessibleWarehouses = getUserAccessibleWarehouses();
+                currentWarehouse = accessibleWarehouses.length > 0 ? accessibleWarehouses[0] : 'warehouse_1';
+                warehouseSelect.value = currentWarehouse;
+            }
+            // Also update approval filter to match the warehouse selector
+            currentApprovalFilter = currentWarehouse;
+            // Update active state of approval filter buttons
+            document.querySelectorAll('#approvals .filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                const onclickAttr = btn.getAttribute('onclick');
+                if (onclickAttr) {
+                    const match = onclickAttr.match(/filterApprovals\('([^']+)'\)/);
+                    if (match && match[1] === currentWarehouse) {
+                        btn.classList.add('active');
+                    } else if (currentWarehouse && onclickAttr.includes("filterApprovals('all')")) {
+                        // If a specific warehouse is selected, deactivate 'all' button
+                    }
+                }
+            });
+            // Use requestAnimationFrame for smooth updates
+            requestAnimationFrame(() => {
             displayExpenses();
             updateSummary();
+            displayApprovals(); // Also refresh approvals to respect warehouse change
+            });
         }
 
-        // Tab switching
+        // Tab switching with performance optimization
+        let lastApprovalsLoad = 0;
+        const APPROVALS_CACHE_TIME = 5000; // 5 seconds cache
+        
         function showTab(tabName) {
+            // Immediate UI update for better responsiveness
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
             
             document.getElementById(tabName).classList.add('active');
             event.target.classList.add('active');
             
-            if (tabName === 'list') displayExpenses();
-            if (tabName === 'summary') {
-                updateSummary();
+            // Use requestAnimationFrame for smooth updates
+            if (tabName === 'list') {
+                requestAnimationFrame(() => displayExpenses());
             }
-            if (tabName === 'users') loadUsers();
-            if (tabName === 'approvals') displayApprovals();
+            if (tabName === 'summary') {
+                requestAnimationFrame(() => updateSummary());
+            }
+            if (tabName === 'users') {
+                requestAnimationFrame(() => loadUsers());
+            }
+            if (tabName === 'approvals') {
+                // Sync approval filter with warehouse selector when switching to approvals tab
+                if (currentWarehouse && currentWarehouse !== 'all' && (!currentApprovalFilter || currentApprovalFilter === 'all')) {
+                    currentApprovalFilter = currentWarehouse;
+                    // Update active state of approval filter buttons
+                    document.querySelectorAll('#approvals .filter-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                        const onclickAttr = btn.getAttribute('onclick');
+                        if (onclickAttr) {
+                            const match = onclickAttr.match(/filterApprovals\('([^']+)'\)/);
+                            if (match && match[1] === currentWarehouse) {
+                                btn.classList.add('active');
+                            }
+                        }
+                    });
+                }
+                // Only reload if cache is stale (more than 5 seconds old)
+                const now = Date.now();
+                if (now - lastApprovalsLoad > APPROVALS_CACHE_TIME) {
+                    lastApprovalsLoad = now;
+                    // Show loading indicator
+                    const approvalsList = document.getElementById('approvalsList');
+                    if (approvalsList) {
+                        approvalsList.innerHTML = '<div class="empty-state"><div style="font-size: 2rem; margin-bottom: 10px;">⏳</div><p>Loading approvals...</p></div>';
+                    }
+                    // Reload expenses asynchronously
+                    (async () => {
+                        // Clear all old expenses on first load
+            const expensesCleared = localStorage.getItem('expensesCleared');
+            if (!expensesCleared) {
+                try {
+                    await clearAllExpenses();
+                    localStorage.setItem('expensesCleared', 'true');
+                    console.log('All old expenses have been cleared');
+                } catch (error) {
+                    console.error('Error clearing expenses:', error);
+                }
+            }
+            expenses = await getExpenses();
+                        requestAnimationFrame(() => displayApprovals());
+                    })();
+                } else {
+                    // Use cached data, but refresh display to respect current filter
+                    requestAnimationFrame(() => displayApprovals());
+                }
+            }
             if (tabName === 'budget') {
+                // Filter budget warehouse selector when switching to budget tab
+                filterWarehouseOptions('budgetWarehouse');
+                requestAnimationFrame(() => {
                 loadBudgetVisualization();
                 loadBudgetManagement();
+                });
             }
         }
 
@@ -1452,11 +2811,24 @@
                 return;
             }
             
-            // File size validation (10MB = 10 * 1024 * 1024 bytes)
-            const maxFileSize = 10 * 1024 * 1024;
-            if (invoiceFile.size > maxFileSize) {
+            // File size validation for Firebase Firestore (1MB limit per field)
+            // Base64 encoding increases size by ~33%, so limit original file to ~750KB
+            const maxFileSizeForFirestore = 750 * 1024; // 750KB
+            const maxFileSizeGeneral = 10 * 1024 * 1024; // 10MB for non-Firebase
+            
+            if (useFirebase && db) {
+                // For Firebase, limit to 750KB to stay within 1MB base64 limit
+                if (invoiceFile.size > maxFileSizeForFirestore) {
+                    const fileSizeMB = (invoiceFile.size / (1024 * 1024)).toFixed(2);
+                    showToast('error', 'File Size Error', `File size (${fileSizeMB}MB) is too large for Firebase. Maximum size is 750KB (~1MB when encoded). Please compress the file or use a smaller file.`);
+                    return;
+                }
+            } else {
+                // For localStorage, limit to 10MB
+                if (invoiceFile.size > maxFileSizeGeneral) {
                 showToast('error', 'File Size Error', 'Invoice file size must be less than 10MB.');
                 return;
+                }
             }
             
             // Amount validation
@@ -1504,13 +2876,19 @@
             // Process the form submission
             const processSubmission = async () => {
                 // Determine the warehouse
-                const warehouse = users[currentUser].role === 'warehouse' ? users[currentUser].warehouse : (currentWarehouse || 'warehouse_1');
+                // For warehouse users, use first assigned warehouse; for others use selector or default
+                let warehouse;
+                const accessibleWarehouses = getUserAccessibleWarehouses();
+                if (users[currentUser].role === 'warehouse') {
+                    const userWarehouses = users[currentUser].warehouse ? users[currentUser].warehouse.split(',') : [];
+                    warehouse = userWarehouses.length > 0 ? userWarehouses[0] : 'warehouse_1';
+                } else {
+                    warehouse = currentWarehouse || 'warehouse_1';
+                }
                 
-                // Vendor name validation - prevent suspicious patterns
-                const vendorNameLower = vendorName.toLowerCase();
-                const suspiciousPatterns = ['test', 'temp', 'dummy', 'sample', 'xxxxx', 'aaaaa', 'zzzzz'];
-                if (suspiciousPatterns.some(pattern => vendorNameLower.includes(pattern))) {
-                    showToast('error', 'Invalid Vendor Name', 'Please enter a valid vendor/supplier name.');
+                // Validate that user has access to the selected warehouse
+                if (!hasWarehouseAccess(users[currentUser], warehouse)) {
+                    showToast('error', 'Access Denied', 'You do not have access to submit expenses for this warehouse.');
                     return;
                 }
                 
@@ -1530,6 +2908,7 @@
                 }
                 
                 // Check for multiple expenses from same vendor on same day (possible fraud detection)
+                const vendorNameLower = vendorName.toLowerCase();
                 const sameDaySameVendor = expenses.filter(expense => 
                     expense.warehouse === warehouse && 
                     expense.vendorName && 
@@ -1538,7 +2917,8 @@
                 );
                 
                 if (sameDaySameVendor.length >= 3) {
-                    if (!confirm(`Warning: This will be the ${sameDaySameVendor.length + 1} expense from vendor "${vendorName}" on ${expenseDate}. Are you sure you want to continue?`)) {
+                    const confirmed = await customConfirm(`Warning: This will be the ${sameDaySameVendor.length + 1} expense from vendor "${vendorName}" on ${expenseDate}. Are you sure you want to continue?`);
+                    if (!confirmed) {
                         return;
                     }
                 }
@@ -1560,7 +2940,7 @@
                 }
                 
                 const expense = {
-                    id: Date.now(),
+                    id: String(Date.now()), // Convert to string for Firebase compatibility
                     date: document.getElementById('expenseDate').value,
                     time: document.getElementById('expenseTime').value,
                     category: document.getElementById('expenseCategory').value,
@@ -1569,7 +2949,7 @@
                     paymentMode: paymentMode,
                     invoiceNumber: invoiceNumber || null,
                     invoiceFile: invoiceData,
-                    description: document.getElementById('expenseDescription').value,
+                    description: document.getElementById('expenseDescription').value || '',
                     warehouse: warehouse,
                     createdBy: currentUser,
                     createdAt: new Date().toISOString(),
@@ -1579,20 +2959,50 @@
                 };
                 
                 expenses.push(expense);
-                localStorage.setItem('warehouseExpenses', JSON.stringify(expenses));
+                await saveExpense(expense);
                 
+                // Show success message immediately (don't wait for email/Firebase reload)
+                showToast('info', 'Expense Submitted', 'Awaiting approval from Master Admin.');
+                
+                // Reset form immediately
                 document.getElementById('expenseForm').reset();
                 document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
                 document.getElementById('expenseTime').value = new Date().toTimeString().slice(0, 5);
                 
-                showToast('info', 'Expense Submitted', 'Awaiting approval from Master Admin.');
+                // Update UI immediately
                 displayExpenses();
                 updateSummary();
+                
+                // Email functionality disabled - will be enabled after configuration
+                // const currentUserData = users[currentUser];
+                // if (currentUserData && currentUserData.email) {
+                //     sendExpenseSubmissionEmail(expense, currentUserData.email, currentUserData.name).catch(err => {
+                //         console.error('Email sending failed (non-critical):', err);
+                //     });
+                // }
+                
+                // Reload expenses from Firebase in background (non-blocking)
+                if (useFirebase && db) {
+                    getExpenses().then(loadedExpenses => {
+                        expenses = loadedExpenses;
+                        displayExpenses();
+                        updateSummary();
+                    }).catch(err => {
+                        console.error('Firebase reload failed (non-critical):', err);
+                    });
+                }
+                // Refresh approvals if on approvals tab
+                if (document.getElementById('approvals').classList.contains('active')) {
+                    displayApprovals();
+                }
             };
             
             processSubmission().catch(error => {
                 console.error('Error in processSubmission:', error);
-                showToast('error', 'Submission Error', 'An error occurred while submitting the expense.');
+                const errorMessage = error.message || 'An error occurred while submitting the expense.';
+                showToast('error', 'Submission Error', errorMessage);
+                // Also try to save to localStorage as fallback
+                console.log('Attempting to save to localStorage as fallback...');
             });
         });
 
@@ -1604,26 +3014,78 @@
             displayExpenses();
         }
 
-        // Display expenses
+        // Display expenses with performance optimization
         function displayExpenses() {
             const expenseList = document.getElementById('expenseList');
+            if (!expenseList) return; // Safety check
+            
+            // Show loading indicator for better UX
+            if (expenses.length > 50) {
+                expenseList.innerHTML = '<div class="empty-state"><div style="font-size: 2rem; margin-bottom: 10px;">⏳</div><p>Loading expenses...</p></div>';
+            }
+            
             let filteredExpenses = expenses;
             
-            // Filter by warehouse - Master users can see all or specific warehouse, warehouse users only see their own
+            // Get user's accessible warehouses
+            const accessibleWarehouses = getUserAccessibleWarehouses();
+            
+            // Filter by warehouse based on user role
             if (users[currentUser].role === 'warehouse') {
-                // Warehouse users can see their own warehouse data (including pending expenses they created)
+                // Warehouse users: only see their assigned warehouse expenses
                 filteredExpenses = filteredExpenses.filter(expense => {
-                    // Check if warehouse matches
-                    const warehouseMatch = expense.warehouse === users[currentUser].warehouse;
-                    // Check if status is approved OR pending (warehouse users can see their pending expenses)
+                    const warehouseMatch = hasWarehouseAccess(users[currentUser], expense.warehouse);
                     const statusMatch = expense.status === 'approved' || expense.status === 'pending' || !expense.status;
                     return warehouseMatch && statusMatch;
                 });
+            } else if (users[currentUser].role === 'approver') {
+                // Approver: see warehouses based on their assignment
+                if (currentWarehouse && currentWarehouse !== 'all') {
+                    // Filter by warehouse selector if set - use strict string comparison
+                    if (hasWarehouseAccess(users[currentUser], currentWarehouse)) {
+                        filteredExpenses = filteredExpenses.filter(expense => {
+                            const expenseWarehouse = String(expense.warehouse || '').trim();
+                            const filterWarehouse = String(currentWarehouse || '').trim();
+                            return expenseWarehouse === filterWarehouse;
+                        });
+                    } else {
+                        filteredExpenses = []; // No access to selected warehouse
+                    }
+                } else {
+                    // If no specific warehouse selected, show only accessible warehouses
+                    filteredExpenses = filteredExpenses.filter(expense => 
+                        accessibleWarehouses.includes(expense.warehouse)
+                    );
+                }
+            } else if (users[currentUser].role === 'master') {
+                // Master users: respect warehouse restrictions if they have assigned warehouses
+                if (users[currentUser].warehouse && users[currentUser].warehouse !== '') {
+                    // Master with warehouse restrictions
+                    if (currentWarehouse && currentWarehouse !== 'all') {
+                        if (hasWarehouseAccess(users[currentUser], currentWarehouse)) {
+                            filteredExpenses = filteredExpenses.filter(expense => {
+                                const expenseWarehouse = String(expense.warehouse || '').trim();
+                                const filterWarehouse = String(currentWarehouse || '').trim();
+                                return expenseWarehouse === filterWarehouse;
+                            });
+                        } else {
+                            filteredExpenses = [];
+                        }
+                    } else {
+                        // Show all accessible warehouses
+                        filteredExpenses = filteredExpenses.filter(expense => 
+                            accessibleWarehouses.includes(expense.warehouse)
+                        );
+                    }
             } else if (currentWarehouse && currentWarehouse !== 'all') {
-                // Master users can filter by specific warehouse
-                filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
+                    // Master with no restrictions: filter by selected warehouse - use strict string comparison
+                    filteredExpenses = filteredExpenses.filter(expense => {
+                        const expenseWarehouse = String(expense.warehouse || '').trim();
+                        const filterWarehouse = String(currentWarehouse || '').trim();
+                        return expenseWarehouse === filterWarehouse;
+                    });
+                }
+                // If master has no restrictions and no filter, show all expenses
             }
-            // If master user selects 'all' or no filter, show all expenses
             
             // Apply date filter
             const now = new Date();
@@ -1666,14 +3128,14 @@
                 return;
             }
             
+            // Render expenses (optimized for performance)
             expenseList.innerHTML = filteredExpenses.map(expense => `
                 <div class="expense-card">
-                    <button class="delete-btn" onclick="deleteExpense(${expense.id})" title="Delete">×</button>
                     <div class="expense-header">
                         <div>
                             <span class="expense-category">${expense.category}</span>
-                            <span class="warehouse-badge">${expense.warehouse}</span>
-                            <span class="approval-status ${expense.status}">${expense.status.toUpperCase()}</span>
+                            <span class="warehouse-badge">${getWarehouseName(expense.warehouse)}</span>
+                            <span class="approval-status ${expense.status}">${expense.status === 'first_approved' ? 'FIRST APPROVED' : expense.status.toUpperCase()}</span>
                         </div>
                         <span class="expense-amount">₹${expense.amount.toFixed(2)}</span>
                     </div>
@@ -1682,7 +3144,9 @@
                         ${expense.vendorName ? `<br>🏪 Vendor: <strong>${expense.vendorName}</strong>` : ''}
                         ${expense.paymentMode ? `<br>💳 Payment: <strong>${expense.paymentMode}</strong>` : ''}
                         ${expense.invoiceNumber ? `<br>🧾 Invoice: <strong>${expense.invoiceNumber}</strong>` : ''}
-                        ${expense.approvedBy ? `<br>✅ Approved by: ${users[expense.approvedBy]?.name || expense.approvedBy}` : ''}
+                        ${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedBy ? `<br>✅ First Approved by: <strong>${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy}</strong>${expense.firstApprovedAt ? ` on ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}` : ''}
+                        ${expense.approvedBy && expense.status === 'rejected' ? `<br>❌ Rejected by: <strong>${users[expense.approvedBy]?.name || 'Approver'}</strong>${expense.approvedAt ? ` on ${new Date(expense.approvedAt).toLocaleString()}` : ''}` : ''}
+                        ${expense.approvedBy && expense.status !== 'rejected' ? `<br>✅ Final Approved by: <strong>${users[expense.approvedBy]?.name || 'Approver'}</strong>${expense.approvedAt ? ` on ${new Date(expense.approvedAt).toLocaleString()}` : ''}` : ''}
                     </div>
                     ${expense.description ? `<div class="expense-description">${expense.description}</div>` : ''}
                     ${expense.invoiceFile ? `
@@ -1696,11 +3160,93 @@
             `).join('');
         }
 
+        // View invoice file in new tab
+        function viewInvoiceFile(id) {
+            try {
+                // Convert id to string if needed
+                const expenseId = String(id);
+                const expense = expenses.find(e => String(e.id) === expenseId);
+                if (!expense) {
+                    showToast('error', 'Error', 'Expense not found');
+                    console.error('Expense not found. ID:', expenseId);
+                    return;
+                }
+                
+                if (!expense.invoiceFile) {
+                    showToast('error', 'Error', 'Invoice file not found for this expense');
+                    return;
+                }
+            
+                if (!expense.invoiceFile.data) {
+                    showToast('error', 'Error', 'Invoice file data is not available. The file may be too large or was not uploaded.');
+                    console.log('Invoice file info:', {
+                        filename: expense.invoiceFile.filename,
+                        type: expense.invoiceFile.type,
+                        size: expense.invoiceFile.size,
+                        hasData: !!expense.invoiceFile.data
+                    });
+                    return;
+                }
+            
+            // Open invoice in new tab/window
+            const newWindow = window.open();
+            if (newWindow) {
+                newWindow.document.write(`
+                    <html>
+                        <head>
+                            <title>${expense.invoiceFile.filename}</title>
+                            <style>
+                                body { margin: 0; padding: 20px; background: #f5f5f5; }
+                                .container { max-width: 100%; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                                img { max-width: 100%; height: auto; }
+                                iframe { width: 100%; height: 80vh; border: none; }
+                                .header { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; }
+                                .header h2 { margin: 0; color: #333; }
+                                .header p { margin: 5px 0 0 0; color: #666; font-size: 14px; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="container">
+                                <div class="header">
+                                    <h2>📄 ${expense.invoiceFile.filename}</h2>
+                                    <p>Invoice #${expense.invoiceNumber || 'N/A'} | Vendor: ${expense.vendorName || 'N/A'} | Amount: ₹${expense.amount.toFixed(2)}</p>
+                                </div>
+                                ${expense.invoiceFile.type === 'application/pdf' 
+                                    ? `<iframe src="${expense.invoiceFile.data}"></iframe>`
+                                    : `<img src="${expense.invoiceFile.data}" alt="${expense.invoiceFile.filename}">`
+                                }
+                            </div>
+                        </body>
+                    </html>
+                `);
+            } else {
+                showToast('error', 'Error', 'Please allow pop-ups to view the invoice');
+            }
+            } catch (error) {
+                console.error('Error viewing invoice:', error);
+                showToast('error', 'Error', 'Failed to view invoice: ' + error.message);
+            }
+        }
+
         // Download invoice file
         function downloadInvoiceFile(id) {
-            const expense = expenses.find(e => e.id === id);
-            if (!expense || !expense.invoiceFile) {
-                showToast('error', 'Error', 'Invoice file not found');
+            try {
+                // Convert id to string if needed
+                const expenseId = String(id);
+                const expense = expenses.find(e => String(e.id) === expenseId);
+                if (!expense) {
+                    showToast('error', 'Error', 'Expense not found');
+                    console.error('Expense not found. ID:', expenseId);
+                    return;
+                }
+                
+                if (!expense.invoiceFile) {
+                    showToast('error', 'Error', 'Invoice file not found for this expense');
+                    return;
+                }
+            
+                if (!expense.invoiceFile.data) {
+                    showToast('error', 'Error', 'Invoice file data is not available. The file may be too large or was not uploaded.');
                 return;
             }
             
@@ -1710,16 +3256,16 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            } catch (error) {
+                console.error('Error downloading invoice:', error);
+                showToast('error', 'Error', 'Failed to download invoice: ' + error.message);
+            }
         }
 
         // Delete expense
-        function deleteExpense(id) {
-            if (confirm('Are you sure you want to delete this expense?')) {
-                expenses = expenses.filter(expense => expense.id !== id);
-                localStorage.setItem('warehouseExpenses', JSON.stringify(expenses));
-                displayExpenses();
-                updateSummary();
-            }
+        async function deleteExpense(id) {
+            // Delete functionality has been disabled - expenses cannot be deleted
+            await customAlert('❌ Delete functionality has been disabled. Expenses cannot be deleted.');
         }
 
         // Update summary with date filter
@@ -1742,17 +3288,63 @@
                 filteredExpenses = filteredExpenses.filter(expense => expense.date <= toDate);
             }
             
-            // Filter by warehouse - Master users can see all or specific warehouse, warehouse users only see their own
+            // Get user's accessible warehouses
+            const accessibleWarehouses = getUserAccessibleWarehouses();
+            
+            // Filter by warehouse based on user role
             if (users[currentUser].role === 'warehouse') {
-                // Warehouse users can only see their own warehouse data and only approved expenses
+                // Warehouse users: only see their assigned warehouse approved expenses
                 filteredExpenses = filteredExpenses.filter(expense => 
-                    expense.warehouse === users[currentUser].warehouse && expense.status === 'approved'
+                    hasWarehouseAccess(users[currentUser], expense.warehouse) && expense.status === 'approved'
                 );
+            } else if (users[currentUser].role === 'approver') {
+                // Approver: filter by warehouse selector or warehouse mapping
+                if (currentWarehouse && currentWarehouse !== 'all') {
+                    if (hasWarehouseAccess(users[currentUser], currentWarehouse)) {
+                        filteredExpenses = filteredExpenses.filter(expense => {
+                            const expenseWarehouse = String(expense.warehouse || '').trim();
+                            const filterWarehouse = String(currentWarehouse || '').trim();
+                            return expenseWarehouse === filterWarehouse;
+                        });
+                    } else {
+                        filteredExpenses = [];
+                    }
+                } else {
+                    // If no specific warehouse selected, show only accessible warehouses
+                    filteredExpenses = filteredExpenses.filter(expense => 
+                        accessibleWarehouses.includes(expense.warehouse)
+                    );
+                }
+            } else if (users[currentUser].role === 'master') {
+                // Master users: respect warehouse restrictions if they have assigned warehouses
+                if (users[currentUser].warehouse && users[currentUser].warehouse !== '') {
+                    // Master with warehouse restrictions
+                    if (currentWarehouse && currentWarehouse !== 'all') {
+                        if (hasWarehouseAccess(users[currentUser], currentWarehouse)) {
+                            filteredExpenses = filteredExpenses.filter(expense => {
+                                const expenseWarehouse = String(expense.warehouse || '').trim();
+                                const filterWarehouse = String(currentWarehouse || '').trim();
+                                return expenseWarehouse === filterWarehouse;
+                            });
+                        } else {
+                            filteredExpenses = [];
+                        }
+                    } else {
+                        // Show all accessible warehouses
+                        filteredExpenses = filteredExpenses.filter(expense => 
+                            accessibleWarehouses.includes(expense.warehouse)
+                        );
+                    }
             } else if (currentWarehouse && currentWarehouse !== 'all') {
-                // Master users can filter by specific warehouse
-                filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
+                    // Master with no restrictions: filter by selected warehouse - use strict string comparison
+                    filteredExpenses = filteredExpenses.filter(expense => {
+                        const expenseWarehouse = String(expense.warehouse || '').trim();
+                        const filterWarehouse = String(currentWarehouse || '').trim();
+                        return expenseWarehouse === filterWarehouse;
+                    });
+                }
+                // If master has no restrictions and no filter, show all expenses
             }
-            // If master user selects 'all' or no filter, show all expenses
             
             const totalAmount = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
             const totalCount = filteredExpenses.length;
@@ -1853,8 +3445,8 @@
         let uploadedBudgetData = {};
         
         function loadBudgetManagement() {
-            // Only show budget management for master users
-            if (users[currentUser].role !== 'master') {
+            // Show budget management for master and approver users
+            if (users[currentUser].role === 'warehouse') {
                 document.getElementById('budgetManagementSection').style.display = 'none';
                 return;
             }
@@ -1863,13 +3455,17 @@
             document.getElementById('budgetPreview').style.display = 'none';
         }
         
-        function saveUploadedBudgets() {
+        async function saveUploadedBudgets() {
             const warehouse = document.getElementById('budgetWarehouse').value;
             const month = document.getElementById('budgetMonth').value;
             const budgetKey = `${warehouse}_${month}`;
             
             budgets[budgetKey] = uploadedBudgetData;
-            localStorage.setItem('warehouseBudgets', JSON.stringify(budgets));
+            
+            // Save each budget entry to Firebase or localStorage
+            for (const [category, amount] of Object.entries(uploadedBudgetData)) {
+                await saveBudget(warehouse, month, category, amount);
+            }
             
             alert('✅ Budgets saved successfully!');
             document.getElementById('budgetPreview').style.display = 'none';
@@ -2077,7 +3673,7 @@
         }
         
         // Budget Excel Upload Functions
-        function downloadBudgetTemplate() {
+        async function downloadBudgetTemplate() {
             const categories = ['Pooja', 'Tea', 'Petrol', 'Lunch', 'Travel', 'Freight', 'Maintenance', 'Utilities', 'Supplies', 'Other'];
             const csvContent = [
                 'Category,Budget',
@@ -2094,7 +3690,7 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             
-            alert('✅ Template downloaded! Fill in the budget values and upload.');
+            await customAlert('✅ Template downloaded! Fill in the budget values and upload.');
         }
         
         function uploadBudgetFile(event) {
@@ -2102,7 +3698,7 @@
             if (!file) return;
             
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 const csv = e.target.result;
                 const lines = csv.split('\n');
                 
@@ -2122,19 +3718,19 @@
                 }
                 
                 // Show preview
-                showBudgetPreview();
+                await showBudgetPreview();
                 event.target.value = ''; // Reset file input
             };
             
             reader.readAsText(file);
         }
         
-        function showBudgetPreview() {
+        async function showBudgetPreview() {
             const previewDiv = document.getElementById('budgetPreview');
             const previewListDiv = document.getElementById('budgetPreviewList');
             
             if (Object.keys(uploadedBudgetData).length === 0) {
-                alert('❌ No valid budget data found in the CSV file.');
+                await customAlert('❌ No valid budget data found in the CSV file.');
                 return;
             }
             
@@ -2172,65 +3768,123 @@
             URL.revokeObjectURL(url);
         }
 
+        // Toggle warehouse field based on role
+        function toggleWarehouseField() {
+            const role = document.getElementById('newRole').value;
+            const warehouseFieldGroup = document.getElementById('warehouseFieldGroup');
+            const warehouseSelect = document.getElementById('newWarehouse');
+            
+            warehouseFieldGroup.style.display = 'block';
+            
+            if (role === 'warehouse') {
+                // Warehouse role requires at least one warehouse
+                warehouseSelect.required = true;
+            } else {
+                // Master and Approver can have all warehouses (empty) or specific ones
+                warehouseSelect.required = false;
+            }
+        }
+
         // Load users (Master Admin only)
-        function loadUsers() {
+        async function loadUsers() {
+            // Refresh users from database
+            users = await getUsers();
             const userList = document.getElementById('userList');
             userList.innerHTML = Object.entries(users).map(([username, user]) => `
                 <div class="user-card">
                     <h4>${user.name}</h4>
-                    <p><strong>Username:</strong> ${username}</p>
-                    <p><strong>Employee Code:</strong> ${user.employeeCode || 'N/A'}</p>
+                    <p><strong>Employee Code (Username):</strong> ${username}</p>
+                    <p><strong>Email:</strong> ${user.email || 'N/A'}</p>
                     <p><strong>Role:</strong> <span class="user-role ${user.role}">${user.role.toUpperCase()}</span></p>
-                    ${user.warehouse ? `<p><strong>Warehouse:</strong> ${user.warehouse}</p>` : ''}
+                    <p><strong>Warehouse:</strong> ${user.warehouse && user.warehouse !== '' ? (user.warehouse.includes(',') ? user.warehouse.split(',').map(w => getWarehouseName(w.trim())).join(', ') : getWarehouseName(user.warehouse)) : 'All Warehouses'}</p>
                     <button onclick="deleteUser('${username}')" class="btn btn-danger" style="width: 100%; margin-top: 10px; padding: 8px;">🗑️ Delete User</button>
                 </div>
             `).join('');
         }
         
         // Add new user form handler
-        document.getElementById('addUserForm').addEventListener('submit', function(e) {
+        document.getElementById('addUserForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const username = document.getElementById('newUsername').value;
+            const employeeCode = document.getElementById('newEmployeeCode').value.trim();
             const password = document.getElementById('newPassword').value;
             const name = document.getElementById('newName').value;
-            const employeeCode = document.getElementById('newEmployeeCode').value;
-            const warehouse = document.getElementById('newWarehouse').value;
+            const email = document.getElementById('newEmail').value.trim();
+            const role = document.getElementById('newRole').value;
+            const warehouseSelect = document.getElementById('newWarehouse');
+            
+            // Use Employee Code as username
+            const username = employeeCode;
+            
+            // Validate employee code is not empty
+            if (!employeeCode || employeeCode.trim() === '') {
+                await customAlert('❌ Employee Code is required and will be used as username!');
+                return;
+            }
+            
+            // Validate email format only if email is provided (it's optional)
+            if (email && email.trim() !== '') {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    await customAlert('❌ Please enter a valid email address!');
+                    return;
+                }
+            }
+            
+            // Get selected warehouses (multiple selection)
+            const selectedWarehouses = Array.from(warehouseSelect.selectedOptions).map(option => option.value);
+            const warehouse = selectedWarehouses.length > 0 ? selectedWarehouses.join(',') : '';
             
             if (users[username]) {
-                alert('❌ Username already exists!');
+                await customAlert('❌ Employee Code already exists! Please use a different Employee Code.');
+                return;
+            }
+            
+            // Validate warehouse is required for warehouse role
+            if (role === 'warehouse' && selectedWarehouses.length === 0) {
+                await customAlert('❌ At least one warehouse is required for warehouse entry users!');
                 return;
             }
             
             users[username] = {
                 password: password,
-                role: 'warehouse',
+                role: role,
                 name: name,
                 employeeCode: employeeCode,
-                warehouse: warehouse
+                email: email,
+                warehouse: warehouse // Store as comma-separated string or empty for "all"
             };
             
-            localStorage.setItem('warehouseUsers', JSON.stringify(users));
+            await saveUser(username, users[username]);
             
-            alert(`✅ User "${name}" created successfully!`);
+            // Send welcome email to new user
+            // Email functionality disabled - will be enabled after configuration
+            // await sendUserCreationEmail(email, name, username, password, role);
+            
+            await customAlert(`✅ User "${name}" created successfully!`);
             
             // Reset form
             this.reset();
             
             // Reload user list
+            users = await getUsers();
             loadUsers();
         });
         
-        function deleteUser(username) {
+        async function deleteUser(username) {
             if (username === 'admin') {
-                alert('❌ Cannot delete master admin user!');
+                await customAlert('❌ Cannot delete master admin user!');
                 return;
             }
             
-            if (confirm(`Are you sure you want to delete user "${users[username].name}"?`)) {
+            const confirmed = await customConfirm(`Are you sure you want to delete user "${users[username].name}"?`);
+            if (confirmed) {
                 delete users[username];
+                await deleteUserFirebase(username);
+                // Also save to localStorage as backup
                 localStorage.setItem('warehouseUsers', JSON.stringify(users));
-                alert('✅ User deleted successfully!');
+                await customAlert('✅ User deleted successfully!');
+                users = await getUsers();
                 loadUsers();
             }
         }
@@ -2263,25 +3917,123 @@
         
         function displayApprovals() {
             const approvalsList = document.getElementById('approvalsList');
-            let pendingExpenses = expenses.filter(expense => expense.status === 'pending');
             
-            // Filter by warehouse if specified
-            if (currentApprovalFilter !== 'all') {
-                pendingExpenses = pendingExpenses.filter(expense => expense.warehouse === currentApprovalFilter);
+            // Determine which expenses to show based on user role and 2nd level approval
+            let expensesToShow = [];
+            
+            if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
+                // 2nd level approver sees expenses that are first_approved
+                expensesToShow = expenses.filter(expense => expense.status === 'first_approved');
+            } else {
+                // First level approvers see expenses that are pending (or have no status, which defaults to pending)
+                expensesToShow = expenses.filter(expense => expense.status === 'pending' || !expense.status || expense.status === '');
             }
             
-            if (pendingExpenses.length === 0) {
+            // Get user's accessible warehouses
+            const accessibleWarehouses = getUserAccessibleWarehouses();
+            
+            // Second-level approver always sees all warehouses - no filtering needed
+            if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
+                // Only filter by warehouse selector if a specific warehouse is selected
+                if (currentApprovalFilter && currentApprovalFilter !== 'all') {
+                    expensesToShow = expensesToShow.filter(expense => {
+                        const expenseWarehouse = String(expense.warehouse || '').trim();
+                        const filterWarehouse = String(currentApprovalFilter || '').trim();
+                        return expenseWarehouse === filterWarehouse;
+                    });
+                }
+                // If 'all' is selected or no filter, show all warehouses (no additional filtering)
+            } else if (users[currentUser].role === 'approver' && users[currentUser].warehouse && users[currentUser].warehouse !== '') {
+                // Approver with warehouse mapping: filter by approval filter or warehouse selector first
+                if (currentApprovalFilter && currentApprovalFilter !== 'all') {
+                    // Filter by approval filter button if set
+                    const userWarehouses = users[currentUser].warehouse.split(',');
+                    if (userWarehouses.includes(currentApprovalFilter)) {
+                        expensesToShow = expensesToShow.filter(expense => {
+                            const expenseWarehouse = String(expense.warehouse || '').trim();
+                            const filterWarehouse = String(currentApprovalFilter || '').trim();
+                            return expenseWarehouse === filterWarehouse;
+                        });
+                    } else {
+                        expensesToShow = [];
+                    }
+                } else if (currentWarehouse && currentWarehouse !== 'all') {
+                    // Filter by warehouse selector if approval filter is 'all'
+                    const userWarehouses = users[currentUser].warehouse.split(',');
+                    if (userWarehouses.includes(currentWarehouse)) {
+                        expensesToShow = expensesToShow.filter(expense => {
+                            const expenseWarehouse = String(expense.warehouse || '').trim();
+                            const filterWarehouse = String(currentWarehouse || '').trim();
+                            return expenseWarehouse === filterWarehouse;
+                        });
+                    } else {
+                        expensesToShow = [];
+                    }
+                } else {
+                    // Show all assigned warehouses if no filter is set
+                    const userWarehouses = users[currentUser].warehouse.split(',');
+                    expensesToShow = expensesToShow.filter(expense => userWarehouses.includes(expense.warehouse));
+                }
+            } else if (users[currentUser].role === 'master' && users[currentUser].warehouse && users[currentUser].warehouse !== '') {
+                // Master with warehouse restrictions: only see accessible warehouses
+                if (currentApprovalFilter && currentApprovalFilter !== 'all') {
+                    if (hasWarehouseAccess(users[currentUser], currentApprovalFilter)) {
+                        expensesToShow = expensesToShow.filter(expense => {
+                            const expenseWarehouse = String(expense.warehouse || '');
+                            const filterWarehouse = String(currentApprovalFilter || '');
+                            return expenseWarehouse === filterWarehouse;
+                        });
+                    } else {
+                        expensesToShow = [];
+                    }
+                } else {
+                    // Show all accessible warehouses
+                    expensesToShow = expensesToShow.filter(expense => 
+                        accessibleWarehouses.includes(expense.warehouse)
+                    );
+                }
+            } else if (currentApprovalFilter && currentApprovalFilter !== 'all') {
+                // Filter by approval filter button (only if a specific warehouse is selected)
+                if (users[currentUser].role === 'approver' && !hasWarehouseAccess(users[currentUser], currentApprovalFilter)) {
+                    expensesToShow = [];
+                } else {
+                    // Strict string comparison to ensure exact warehouse match (prevents warehouse_1 matching warehouse_11)
+                    expensesToShow = expensesToShow.filter(expense => {
+                        const expenseWarehouse = String(expense.warehouse || '').trim();
+                        const filterWarehouse = String(currentApprovalFilter || '').trim();
+                        return expenseWarehouse === filterWarehouse;
+                    });
+                }
+            } else if (currentWarehouse && currentWarehouse !== 'all') {
+                // If no approval filter is set but warehouse selector is set, use warehouse selector
+                expensesToShow = expensesToShow.filter(expense => {
+                    const expenseWarehouse = String(expense.warehouse || '').trim();
+                    const filterWarehouse = String(currentWarehouse || '').trim();
+                    return expenseWarehouse === filterWarehouse;
+                });
+            } else if (users[currentUser].role === 'master' && users[currentUser].warehouse && users[currentUser].warehouse !== '') {
+                // Master with warehouse restrictions but 'all' filter: show only accessible warehouses
+                expensesToShow = expensesToShow.filter(expense => 
+                    accessibleWarehouses.includes(expense.warehouse)
+                );
+            }
+            // For master users with no warehouse restrictions and 'all' filter, show all pending expenses (no additional filtering)
+            
+            if (expensesToShow.length === 0) {
+                const message = ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID
+                    ? 'No expenses pending final approval'
+                    : 'No pending approvals';
                 approvalsList.innerHTML = `
                     <div class="empty-state">
                         <div style="font-size: 4rem; margin-bottom: 20px;">✅</div>
-                        <h3>No pending approvals</h3>
+                        <h3>${message}</h3>
                         <p>All expenses have been reviewed!</p>
                     </div>
                 `;
                 return;
             }
             
-            approvalsList.innerHTML = pendingExpenses.map(expense => {
+            approvalsList.innerHTML = expensesToShow.map(expense => {
                 // Get the month from expense date (YYYY-MM format)
                 const expenseMonth = expense.date.substring(0, 7);
                 const budgetInfo = getRemainingBudget(expense.warehouse, expense.category, expenseMonth);
@@ -2329,8 +4081,8 @@
                     <div class="expense-header">
                         <div>
                             <span class="expense-category">${expense.category}</span>
-                            <span class="warehouse-badge">${expense.warehouse}</span>
-                            <span class="approval-status ${expense.status}">${expense.status.toUpperCase()}</span>
+                            <span class="warehouse-badge">${getWarehouseName(expense.warehouse)}</span>
+                            <span class="approval-status ${expense.status}">${expense.status === 'first_approved' ? 'FIRST APPROVED' : expense.status.toUpperCase()}</span>
                         </div>
                         <span class="expense-amount">₹${expense.amount.toFixed(2)}</span>
                     </div>
@@ -2340,19 +4092,46 @@
                         ${expense.paymentMode ? `<br>💳 Payment: <strong>${expense.paymentMode}</strong>` : ''}
                         ${expense.invoiceNumber ? `<br>🧾 Invoice: <strong>${expense.invoiceNumber}</strong>` : ''}
                         <br>👤 Created by: ${users[expense.createdBy]?.name || expense.createdBy}
+                        ${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedBy ? `<br>✅ First Approved by: ${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy}${expense.firstApprovedAt ? ` on ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}` : ''}
                     </div>
                     ${expense.description ? `<div class="expense-description">${expense.description}</div>` : ''}
                     ${expense.invoiceFile ? `
-                        <div style="margin-top: 10px;">
-                            <button onclick="downloadInvoiceFile(${expense.id})" style="background: #17a2b8; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                        <div style="margin-top: 10px; display: flex; gap: 10px;">
+                            ${expense.invoiceFile.data ? `
+                                <button onclick="viewInvoiceFile('${expense.id}')" style="background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                                    👁️ View Invoice
+                                </button>
+                                <button onclick="downloadInvoiceFile('${expense.id}')" style="background: #17a2b8; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
                                 📎 Download Invoice
                             </button>
+                            ` : `
+                                <div style="background: #fff3cd; padding: 8px 12px; border-radius: 6px; border-left: 3px solid #ffc107; color: #856404; font-size: 12px;">
+                                    ⚠️ Invoice file not available (file may be too large)
+                                </div>
+                            `}
                         </div>
                     ` : ''}
                     ${budgetDisplay}
+                    ${ENABLE_2ND_LEVEL_APPROVAL && expense.status === 'first_approved' ? `
+                        <div style="background: #e3f2fd; padding: 10px; border-radius: 6px; margin-top: 10px; border-left: 3px solid #2196f3;">
+                            <strong style="color: #1976d2;">📋 First Level Approved</strong>
+                            <div style="font-size: 12px; color: #555; margin-top: 4px;">
+                                Approved by: ${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy || 'N/A'}
+                                ${expense.firstApprovedAt ? ` on ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}
+                            </div>
+                        </div>
+                    ` : ''}
                     <div class="approval-actions">
-                        <button class="approval-btn approve-btn" onclick="approveExpense(${expense.id})">✅ Approve</button>
-                        <button class="approval-btn reject-btn" onclick="rejectExpense(${expense.id})">❌ Reject</button>
+                        ${ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID && expense.status === 'first_approved' ? `
+                            <button class="approval-btn approve-btn" onclick="approveExpense('${expense.id}')">✅ Final Approve</button>
+                            <button class="approval-btn reject-btn" onclick="rejectExpense('${expense.id}')">❌ Reject</button>
+                        ` : ENABLE_2ND_LEVEL_APPROVAL && expense.status === 'pending' ? `
+                            <button class="approval-btn approve-btn" onclick="approveExpense('${expense.id}')">✅ First Approve</button>
+                            <button class="approval-btn reject-btn" onclick="rejectExpense('${expense.id}')">❌ Reject</button>
+                        ` : `
+                            <button class="approval-btn approve-btn" onclick="approveExpense('${expense.id}')">✅ Approve</button>
+                            <button class="approval-btn reject-btn" onclick="rejectExpense('${expense.id}')">❌ Reject</button>
+                        `}
                     </div>
                 </div>
             `;
@@ -2361,52 +4140,180 @@
 
         function filterApprovals(filter) {
             currentApprovalFilter = filter;
+            // Remove active class from all filter buttons
             document.querySelectorAll('#approvals .filter-btn').forEach(btn => btn.classList.remove('active'));
+            // Add active class to clicked button
+            if (event && event.target) {
             event.target.classList.add('active');
+            } else {
+                // Fallback: find button by filter value
+                document.querySelectorAll('#approvals .filter-btn').forEach(btn => {
+                    if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(`'${filter}'`)) {
+                        btn.classList.add('active');
+                    }
+                });
+            }
             displayApprovals();
         }
 
-        function approveExpense(id) {
-            if (confirm('Are you sure you want to approve this expense?')) {
-                const expense = expenses.find(e => e.id === id);
-                if (expense) {
+        async function approveExpense(id) {
+            try {
+                    // Convert id to string if needed
+                    const expenseId = String(id);
+                    const expense = expenses.find(e => String(e.id) === expenseId);
+                    if (!expense) {
+                        showToast('error', 'Error', 'Expense not found');
+                        console.error('Expense not found. ID:', expenseId, 'Available IDs:', expenses.map(e => e.id));
+                        return;
+                    }
+                    
+                    // Determine approval level
+                    const isSecondLevelApprover = ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID;
+                    const isFirstApproval = expense.status === 'pending';
+                    const isFinalApproval = expense.status === 'first_approved';
+                    
+                    // Create a more informative confirmation message
+                    let confirmMessage = '';
+                    if (ENABLE_2ND_LEVEL_APPROVAL && isFinalApproval) {
+                        confirmMessage = `Confirm Final Approval\n\n` +
+                            `Amount: ₹${expense.amount.toFixed(2)}\n` +
+                            `Vendor: ${expense.vendorName || 'N/A'}\n` +
+                            `Category: ${expense.category}\n` +
+                            `Warehouse: ${getWarehouseName(expense.warehouse)}\n` +
+                            `First Approved by: ${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy || 'N/A'}\n\n` +
+                            `Do you want to give final approval to this expense?`;
+                    } else if (ENABLE_2ND_LEVEL_APPROVAL && isFirstApproval) {
+                        confirmMessage = `Confirm First Level Approval\n\n` +
+                            `Amount: ₹${expense.amount.toFixed(2)}\n` +
+                            `Vendor: ${expense.vendorName || 'N/A'}\n` +
+                            `Category: ${expense.category}\n` +
+                            `Warehouse: ${expense.warehouse}\n\n` +
+                            `This expense will require final approval from ${users[SECOND_LEVEL_APPROVER_ID]?.name || SECOND_LEVEL_APPROVER_ID}.\n\n` +
+                            `Do you want to approve this expense?`;
+                    } else {
+                        confirmMessage = `Confirm Approval\n\n` +
+                            `Amount: ₹${expense.amount.toFixed(2)}\n` +
+                            `Vendor: ${expense.vendorName || 'N/A'}\n` +
+                            `Category: ${expense.category}\n` +
+                            `Warehouse: ${expense.warehouse}\n\n` +
+                            `Do you want to approve this expense?`;
+                    }
+                    
+            const confirmed = await customConfirm(confirmMessage);
+            if (confirmed) {
+                    if (ENABLE_2ND_LEVEL_APPROVAL && isFinalApproval) {
+                        // Final approval - change status to approved
                     expense.status = 'approved';
                     expense.approvedBy = currentUser;
                     expense.approvedAt = new Date().toISOString();
-                    localStorage.setItem('warehouseExpenses', JSON.stringify(expenses));
+                        await saveExpense(expense);
+                        
+                        // Show success message immediately
+                        showToast('success', 'Success', 'Expense finally approved successfully!');
+                        
+                        // Email functionality disabled - will be enabled after configuration
+                        // const approverData = users[currentUser];
+                        // if (approverData && approverData.name) {
+                        //     sendApprovalEmail(expense, 'approved', approverData.name).catch(err => {
+                        //         console.error('Email sending failed (non-critical):', err);
+                        //     });
+                        // }
+                    } else if (ENABLE_2ND_LEVEL_APPROVAL && isFirstApproval) {
+                        // First level approval - change status to first_approved
+                        expense.status = 'first_approved';
+                        expense.firstApprovedBy = currentUser;
+                        expense.firstApprovedAt = new Date().toISOString();
+                        await saveExpense(expense);
+                        
+                        // Show success message immediately
+                        showToast('success', 'Success', 'Expense first level approved! Waiting for final approval.');
+                        
+                        // Email functionality disabled - will be enabled after configuration
+                        // const secondLevelApprover = users[SECOND_LEVEL_APPROVER_ID];
+                        // if (secondLevelApprover && secondLevelApprover.email && emailServerConfigured) {
+                        //     sendExpenseSubmissionEmail(expense, users[currentUser]?.email || '', users[currentUser]?.name || currentUser).catch(err => {
+                        //         console.error('Error sending notification to 2nd level approver:', err);
+                        //     });
+                        // }
+                        // 
+                        // const approverData = users[currentUser];
+                        // if (approverData && approverData.name) {
+                        //     sendApprovalEmail(expense, 'first_approved', approverData.name).catch(err => {
+                        //         console.error('Email sending failed (non-critical):', err);
+                        //     });
+                        // }
+                    } else {
+                        // Single level approval (2nd level disabled)
+                        expense.status = 'approved';
+                        expense.approvedBy = currentUser;
+                        expense.approvedAt = new Date().toISOString();
+                        await saveExpense(expense);
+                        
+                        // Show success message immediately
+                        showToast('success', 'Success', 'Expense approved successfully!');
+                        
+                        // Email functionality disabled - will be enabled after configuration
+                        // const approverData = users[currentUser];
+                        // if (approverData && approverData.name) {
+                        //     sendApprovalEmail(expense, 'approved', approverData.name).catch(err => {
+                        //         console.error('Email sending failed (non-critical):', err);
+                        //     });
+                        // }
+                    }
+                    
                     displayApprovals();
                     displayExpenses();
                     updateSummary();
-                    alert('✅ Expense approved successfully!');
                 }
+            } catch (error) {
+                console.error('Error approving expense:', error);
+                showToast('error', 'Error', 'Failed to approve expense: ' + error.message);
             }
         }
 
-        function rejectExpense(id) {
-            if (confirm('Are you sure you want to reject this expense?')) {
-                const expense = expenses.find(e => e.id === id);
-                if (expense) {
+        async function rejectExpense(id) {
+            try {
+                    // Convert id to string if needed
+                    const expenseId = String(id);
+                    const expense = expenses.find(e => String(e.id) === expenseId);
+                    if (!expense) {
+                        showToast('error', 'Error', 'Expense not found');
+                        console.error('Expense not found. ID:', expenseId, 'Available IDs:', expenses.map(e => e.id));
+                        return;
+                    }
+                    
+                    // Create a more informative confirmation message
+                    const confirmMessage = `Confirm Rejection\n\n` +
+                        `Amount: ₹${expense.amount.toFixed(2)}\n` +
+                        `Vendor: ${expense.vendorName || 'N/A'}\n` +
+                        `Category: ${expense.category}\n` +
+                        `Warehouse: ${expense.warehouse}\n\n` +
+                        `Do you want to reject this expense?`;
+                    
+            const confirmed = await customConfirm(confirmMessage);
+            if (confirmed) {
                     expense.status = 'rejected';
                     expense.approvedBy = currentUser;
                     expense.approvedAt = new Date().toISOString();
-                    localStorage.setItem('warehouseExpenses', JSON.stringify(expenses));
+                    await saveExpense(expense);
+                    
+                    // Show success message immediately
+                    showToast('success', 'Success', 'Expense rejected successfully!');
+                    
+                    // Email functionality disabled - will be enabled after configuration
+                    // const approverData = users[currentUser];
+                    // if (approverData && approverData.name) {
+                    //     sendApprovalEmail(expense, 'rejected', approverData.name).catch(err => {
+                    //         console.error('Email sending failed (non-critical):', err);
+                    //     });
+                    // }
+                    
                     displayApprovals();
-                    alert('❌ Expense rejected successfully!');
                 }
+            } catch (error) {
+                console.error('Error rejecting expense:', error);
+                showToast('error', 'Error', 'Failed to reject expense: ' + error.message);
             }
-        }
-
-        // Helper function to convert warehouse ID to warehouse name
-        function getWarehouseName(warehouseId) {
-            if (!warehouseId || warehouseId === 'all') {
-                return 'All Warehouses';
-            }
-            // Convert "warehouse_1" to "Warehouse 1", "warehouse_2" to "Warehouse 2", etc.
-            if (warehouseId.startsWith('warehouse_')) {
-                const number = warehouseId.replace('warehouse_', '');
-                return `Warehouse ${number}`;
-            }
-            return warehouseId; // Return as-is if format is unexpected
         }
 
         // Download functions
@@ -2431,17 +4338,63 @@
         function getFilteredExpenses() {
             let filteredExpenses = expenses;
             
-            // Filter by warehouse - Master users can see all or specific warehouse, warehouse users only see their own
+            // Get user's accessible warehouses
+            const accessibleWarehouses = getUserAccessibleWarehouses();
+            
+            // Filter by warehouse - Respect user's warehouse access restrictions
             if (users[currentUser].role === 'warehouse') {
-                // Warehouse users can only see their own warehouse data and only approved expenses
+                // Warehouse users: only see their assigned warehouse approved expenses
                 filteredExpenses = filteredExpenses.filter(expense => 
-                    expense.warehouse === users[currentUser].warehouse && expense.status === 'approved'
+                    hasWarehouseAccess(users[currentUser], expense.warehouse) && expense.status === 'approved'
                 );
+            } else if (users[currentUser].role === 'approver') {
+                // Approver: filter by warehouse selector or warehouse mapping
+                if (currentWarehouse && currentWarehouse !== 'all') {
+                    if (hasWarehouseAccess(users[currentUser], currentWarehouse)) {
+                        filteredExpenses = filteredExpenses.filter(expense => {
+                            const expenseWarehouse = String(expense.warehouse || '').trim();
+                            const filterWarehouse = String(currentWarehouse || '').trim();
+                            return expenseWarehouse === filterWarehouse;
+                        });
+                    } else {
+                        filteredExpenses = [];
+                    }
+                } else {
+                    // If no specific warehouse selected, show only accessible warehouses
+                    filteredExpenses = filteredExpenses.filter(expense => 
+                        accessibleWarehouses.includes(expense.warehouse)
+                    );
+                }
+            } else if (users[currentUser].role === 'master') {
+                // Master users: respect warehouse restrictions if they have assigned warehouses
+                if (users[currentUser].warehouse && users[currentUser].warehouse !== '') {
+                    // Master with warehouse restrictions: only show accessible warehouses
+                    if (currentWarehouse && currentWarehouse !== 'all') {
+                        if (hasWarehouseAccess(users[currentUser], currentWarehouse)) {
+                            filteredExpenses = filteredExpenses.filter(expense => {
+                                const expenseWarehouse = String(expense.warehouse || '').trim();
+                                const filterWarehouse = String(currentWarehouse || '').trim();
+                                return expenseWarehouse === filterWarehouse;
+                            });
+                        } else {
+                            filteredExpenses = [];
+                        }
+                    } else {
+                        // Show all accessible warehouses
+                        filteredExpenses = filteredExpenses.filter(expense => 
+                            accessibleWarehouses.includes(expense.warehouse)
+                        );
+                    }
             } else if (currentWarehouse && currentWarehouse !== 'all') {
-                // Master users can filter by specific warehouse
-                filteredExpenses = filteredExpenses.filter(expense => expense.warehouse === currentWarehouse);
+                    // Master with no restrictions: filter by selected warehouse - use strict string comparison
+                    filteredExpenses = filteredExpenses.filter(expense => {
+                        const expenseWarehouse = String(expense.warehouse || '').trim();
+                        const filterWarehouse = String(currentWarehouse || '').trim();
+                        return expenseWarehouse === filterWarehouse;
+                    });
+                }
+                // If master has no restrictions and no filter, show all expenses
             }
-            // If master user selects 'all' or no filter, show all expenses
             
             // Apply date filters
             const fromDate = document.getElementById('downloadFromDate').value;
@@ -2462,10 +4415,14 @@
         }
 
         function convertToCSV(expenses) {
-            const headers = ['Date', 'Time', 'Category', 'Amount', 'Vendor Name', 'Payment Mode', 'Invoice Number', 'Description', 'Warehouse', 'Created By', 'Status', 'Approved By', 'Approved At'];
+            const headers = ENABLE_2ND_LEVEL_APPROVAL 
+                ? ['Date', 'Time', 'Category', 'Amount', 'Vendor Name', 'Payment Mode', 'Invoice Number', 'Description', 'Warehouse', 'Created By', 'Status', 'First Approved By', 'First Approved At', 'Final Approved By', 'Final Approved At']
+                : ['Date', 'Time', 'Category', 'Amount', 'Vendor Name', 'Payment Mode', 'Invoice Number', 'Description', 'Warehouse', 'Created By', 'Status', 'Approved By', 'Approved At'];
             const csvContent = [
                 headers.join(','),
-                ...expenses.map(expense => [
+                ...expenses.map(expense => {
+                    if (ENABLE_2ND_LEVEL_APPROVAL) {
+                        return [
                     expense.date,
                     expense.time,
                     expense.category,
@@ -2474,12 +4431,32 @@
                     expense.paymentMode || '',
                     expense.invoiceNumber || '',
                     `"${expense.description || ''}"`,
-                    getWarehouseName(expense.warehouse),
-                    expense.createdBy,
+                    expense.warehouse,
+                            users[expense.createdBy]?.name || expense.createdBy,
                     expense.status || 'pending',
-                    expense.approvedBy || '',
-                    expense.approvedAt || ''
-                ].join(','))
+                            expense.firstApprovedBy ? (users[expense.firstApprovedBy]?.name || 'First Approver') : '',
+                            expense.firstApprovedAt || '',
+                            expense.approvedBy && expense.status === 'rejected' ? (users[expense.approvedBy]?.name || 'Approver') : (expense.approvedBy && expense.status !== 'rejected' ? (users[expense.approvedBy]?.name || 'Approver') : ''),
+                    expense.approvedAt && expense.status === 'rejected' ? expense.approvedAt : (expense.approvedAt && expense.status !== 'rejected' ? expense.approvedAt : '')
+                        ].join(',');
+                    } else {
+                        return [
+                            expense.date,
+                            expense.time,
+                            expense.category,
+                            expense.amount,
+                            expense.vendorName || '',
+                            expense.paymentMode || '',
+                            expense.invoiceNumber || '',
+                            `"${expense.description || ''}"`,
+                            expense.warehouse,
+                            users[expense.createdBy]?.name || expense.createdBy,
+                            expense.status || 'pending',
+                            expense.approvedBy && expense.status === 'rejected' ? (users[expense.approvedBy]?.name || 'Approver') : (expense.approvedBy && expense.status !== 'rejected' ? (users[expense.approvedBy]?.name || 'Approver') : ''),
+                            expense.approvedAt && expense.status === 'rejected' ? expense.approvedAt : (expense.approvedAt && expense.status !== 'rejected' ? expense.approvedAt : '')
+                        ].join(',');
+                    }
+                })
             ].join('\n');
             return csvContent;
         }
@@ -2490,7 +4467,7 @@
 WAREHOUSE EXPENSE REPORT
 Generated: ${new Date().toLocaleString()}
 User: ${currentUser}
-Warehouse: ${getWarehouseName(currentWarehouse) || 'All'}
+Warehouse: ${currentWarehouse || 'All'}
 
 SUMMARY:
 Total Expenses: ₹${totalAmount.toFixed(2)}
@@ -2507,10 +4484,14 @@ ${expense.invoiceNumber ? `Invoice: ${expense.invoiceNumber}` : ''}
 ${expense.invoiceFile ? `Invoice File: ${expense.invoiceFile.filename}` : ''}
 Description: ${expense.description || 'N/A'}
 Warehouse: ${getWarehouseName(expense.warehouse)}
-Created By: ${expense.createdBy}
+Created By: ${users[expense.createdBy]?.name || expense.createdBy}
 Status: ${expense.status || 'pending'}
-${expense.approvedBy ? `Approved By: ${expense.approvedBy}` : ''}
-${expense.approvedAt ? `Approved At: ${new Date(expense.approvedAt).toLocaleString()}` : ''}
+${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedBy ? `First Approved By: ${users[expense.firstApprovedBy]?.name || 'First Approver'}` : ''}
+${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedAt ? `First Approved At: ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}
+${expense.approvedBy && expense.status === 'rejected' ? `Rejected By: ${users[expense.approvedBy]?.name || 'Approver'}` : ''}
+${expense.approvedAt && expense.status === 'rejected' ? `Rejected At: ${new Date(expense.approvedAt).toLocaleString()}` : ''}
+${expense.approvedBy && expense.status !== 'rejected' ? `Final Approved By: ${users[expense.approvedBy]?.name || 'Approver'}` : ''}
+${expense.approvedAt && expense.status !== 'rejected' ? `Final Approved At: ${new Date(expense.approvedAt).toLocaleString()}` : ''}
 ---`).join('')}
             `;
         }
