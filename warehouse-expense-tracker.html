@@ -3171,13 +3171,24 @@
                 displayExpenses();
                 updateSummary();
                 
-                // Email functionality disabled - will be enabled after configuration
-                // const currentUserData = users[currentUser];
-                // if (currentUserData && currentUserData.email) {
-                //     sendExpenseSubmissionEmail(expense, currentUserData.email, currentUserData.name).catch(err => {
-                //         console.error('Email sending failed (non-critical):', err);
-                //     });
-                // }
+                // Send email notifications to approvers
+                if (emailConfigured) {
+                    const creatorData = users[currentUser];
+                    const approvers = getApproversForExpense(expense);
+                    
+                    // Send email to each approver who has access to this warehouse
+                    approvers.forEach(approver => {
+                        sendExpenseSubmissionEmail(
+                            expense,
+                            creatorData?.email || '',
+                            creatorData?.name || currentUser,
+                            approver.email,
+                            approver.name
+                        ).catch(err => {
+                            console.error(`Error sending email to ${approver.name}:`, err);
+                        });
+                    });
+                }
                 
                 // Reload expenses from Firebase in background (non-blocking)
                 if (useFirebase && db) {
@@ -4443,13 +4454,21 @@
                         // Show success message immediately
                         showToast('success', 'Success', 'Expense finally approved successfully!');
                         
-                        // Email functionality disabled - will be enabled after configuration
-                        // const approverData = users[currentUser];
-                        // if (approverData && approverData.name) {
-                        //     sendApprovalEmail(expense, 'approved', approverData.name).catch(err => {
-                        //         console.error('Email sending failed (non-critical):', err);
-                        //     });
-                        // }
+                        // Send email notifications
+                        const approverData = users[currentUser];
+                        if (approverData && approverData.email && emailConfigured) {
+                            sendApprovalEmail(expense, 'approved', approverData.name, approverData.email).catch(err => {
+                                console.error('Email sending failed (non-critical):', err);
+                            });
+                        }
+                        
+                        // Notify expense creator
+                        const creatorData = users[expense.createdBy];
+                        if (creatorData && creatorData.email && emailConfigured) {
+                            sendApprovalEmail(expense, 'approved', creatorData.name, creatorData.email).catch(err => {
+                                console.error('Email sending failed (non-critical):', err);
+                            });
+                        }
                     } else if (ENABLE_2ND_LEVEL_APPROVAL && isFirstApproval) {
                         // First level approval - change status to first_approved
                         expense.status = 'first_approved';
