@@ -30,7 +30,8 @@
         }
     </script>
     
-    <!-- Gmail Email Server - No external SDK needed, uses fetch API -->
+    <!-- EmailJS SDK for email notifications -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     
     <style>
         * {
@@ -1655,20 +1656,34 @@
         }
         
         // ============================================
-        // GMAIL EMAIL SERVER CONFIGURATION
+        // EMAIL CONFIGURATION (EmailJS)
         // ============================================
-        // Replace with your email server URL
-        // Local development: http://localhost:3000
-        // Production: https://your-server-url.com (Railway, Render, Heroku, etc.)
-        const EMAIL_SERVER_URL = 'http://localhost:3000'; // Change this to your server URL
+        // To enable email notifications:
+        // 1. Sign up at https://www.emailjs.com (free account)
+        // 2. Create an email service (Gmail, Outlook, etc.)
+        // 3. Create email templates
+        // 4. Get your Public Key, Service ID, and Template IDs
+        // 5. Update the values below
         
-        let emailServerConfigured = false;
-        if (EMAIL_SERVER_URL && EMAIL_SERVER_URL !== 'YOUR_SERVER_URL') {
-            emailServerConfigured = true;
-            console.log('✅ Gmail email server configured:', EMAIL_SERVER_URL);
+        const EMAILJS_CONFIG = {
+            PUBLIC_KEY: 'YOUR_PUBLIC_KEY', // Get from EmailJS dashboard
+            SERVICE_ID: 'YOUR_SERVICE_ID', // Your email service ID
+            TEMPLATE_APPROVAL: 'YOUR_APPROVAL_TEMPLATE_ID', // Template for approval emails
+            TEMPLATE_REJECTION: 'YOUR_REJECTION_TEMPLATE_ID', // Template for rejection emails
+            TEMPLATE_SUBMISSION: 'YOUR_SUBMISSION_TEMPLATE_ID' // Template for expense submission
+        };
+        
+        let emailConfigured = false;
+        if (EMAILJS_CONFIG.PUBLIC_KEY && EMAILJS_CONFIG.PUBLIC_KEY !== 'YOUR_PUBLIC_KEY') {
+            emailConfigured = true;
+            // Load EmailJS SDK
+            (function(){
+                emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
+            })();
+            console.log('✅ EmailJS configured - email notifications enabled');
         } else {
-            console.log('ℹ️ Email server not configured - email notifications will be disabled');
-            console.log('ℹ️ To enable: Update EMAIL_SERVER_URL and start email-server.js');
+            console.log('ℹ️ EmailJS not configured - email notifications disabled');
+            console.log('ℹ️ To enable: Sign up at https://www.emailjs.com and update EMAILJS_CONFIG');
         }
         
         // ============================================
@@ -1725,9 +1740,98 @@
             return; // Email disabled
         }
         
-        async function sendApprovalEmail(expense, action, approverName) {
-            // Email functionality disabled - will be enabled after configuration
-            return; // Email disabled
+        async function sendApprovalEmail(expense, action, approverName, approverEmail) {
+            if (!emailConfigured || !approverEmail) {
+                return; // Email not configured or no email address
+            }
+            
+            try {
+                const templateId = action === 'rejected' ? EMAILJS_CONFIG.TEMPLATE_REJECTION : EMAILJS_CONFIG.TEMPLATE_APPROVAL;
+                
+                const templateParams = {
+                    to_email: approverEmail,
+                    to_name: approverName,
+                    expense_amount: `₹${expense.amount.toFixed(2)}`,
+                    expense_category: expense.category,
+                    expense_vendor: expense.vendorName || 'N/A',
+                    expense_date: new Date(expense.date).toLocaleDateString(),
+                    expense_warehouse: getWarehouseName(expense.warehouse),
+                    expense_invoice: expense.invoiceNumber || 'N/A',
+                    action: action === 'approved' ? 'Approved' : action === 'first_approved' ? 'First Level Approved' : 'Rejected',
+                    rejection_reason: expense.rejectionReason || '',
+                    expense_creator: users[expense.createdBy]?.name || expense.createdBy
+                };
+                
+                await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, templateId, templateParams);
+                console.log('✅ Approval email sent successfully');
+            } catch (error) {
+                console.error('❌ Error sending approval email:', error);
+                // Don't throw - email failure shouldn't block approval
+            }
+        }
+        
+        async function sendExpenseSubmissionEmail(expense, creatorEmail, creatorName, approverEmail, approverName) {
+            if (!emailConfigured || !approverEmail) {
+                return; // Email not configured or no approver email
+            }
+            
+            try {
+                const templateParams = {
+                    to_email: approverEmail,
+                    to_name: approverName,
+                    expense_amount: `₹${expense.amount.toFixed(2)}`,
+                    expense_category: expense.category,
+                    expense_vendor: expense.vendorName || 'N/A',
+                    expense_date: new Date(expense.date).toLocaleDateString(),
+                    expense_warehouse: getWarehouseName(expense.warehouse),
+                    expense_invoice: expense.invoiceNumber || 'N/A',
+                    creator_name: creatorName,
+                    creator_email: creatorEmail || 'N/A',
+                    expense_link: window.location.href // Link to view expense
+                };
+                
+                await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.TEMPLATE_SUBMISSION, templateParams);
+                console.log('✅ Expense submission email sent to approver');
+            } catch (error) {
+                console.error('❌ Error sending submission email:', error);
+                // Don't throw - email failure shouldn't block expense creation
+            }
+        }
+        
+        // Get all approvers who should be notified for an expense
+        function getApproversForExpense(expense) {
+            const approvers = [];
+            
+            // Get approvers based on warehouse access
+            Object.keys(users).forEach(username => {
+                const user = users[username];
+                if ((user.role === 'approver' || user.role === 'master') && user.email) {
+                    // Check if user has access to this warehouse
+                    if (hasWarehouseAccess(user, expense.warehouse)) {
+                        approvers.push({
+                            username: username,
+                            name: user.name,
+                            email: user.email,
+                            role: user.role
+                        });
+                    }
+                }
+            });
+            
+            // Add 2nd level approver if enabled
+            if (ENABLE_2ND_LEVEL_APPROVAL && users[SECOND_LEVEL_APPROVER_ID] && users[SECOND_LEVEL_APPROVER_ID].email) {
+                const secondLevelApprover = users[SECOND_LEVEL_APPROVER_ID];
+                if (!approvers.find(a => a.username === SECOND_LEVEL_APPROVER_ID)) {
+                    approvers.push({
+                        username: SECOND_LEVEL_APPROVER_ID,
+                        name: secondLevelApprover.name,
+                        email: secondLevelApprover.email,
+                        role: 'approver'
+                    });
+                }
+            }
+            
+            return approvers;
         }
         
         // ============================================
@@ -4356,20 +4460,27 @@
                         // Show success message immediately
                         showToast('success', 'Success', 'Expense first level approved! Waiting for final approval.');
                         
-                        // Email functionality disabled - will be enabled after configuration
-                        // const secondLevelApprover = users[SECOND_LEVEL_APPROVER_ID];
-                        // if (secondLevelApprover && secondLevelApprover.email && emailServerConfigured) {
-                        //     sendExpenseSubmissionEmail(expense, users[currentUser]?.email || '', users[currentUser]?.name || currentUser).catch(err => {
-                        //         console.error('Error sending notification to 2nd level approver:', err);
-                        //     });
-                        // }
-                        // 
-                        // const approverData = users[currentUser];
-                        // if (approverData && approverData.name) {
-                        //     sendApprovalEmail(expense, 'first_approved', approverData.name).catch(err => {
-                        //         console.error('Email sending failed (non-critical):', err);
-                        //     });
-                        // }
+                        // Send email notifications
+                        const approverData = users[currentUser];
+                        if (approverData && approverData.email && emailConfigured) {
+                            sendApprovalEmail(expense, 'first_approved', approverData.name, approverData.email).catch(err => {
+                                console.error('Email sending failed (non-critical):', err);
+                            });
+                        }
+                        
+                        // Notify 2nd level approver
+                        const secondLevelApprover = users[SECOND_LEVEL_APPROVER_ID];
+                        if (secondLevelApprover && secondLevelApprover.email && emailConfigured) {
+                            sendExpenseSubmissionEmail(
+                                expense, 
+                                users[expense.createdBy]?.email || '', 
+                                users[expense.createdBy]?.name || expense.createdBy,
+                                secondLevelApprover.email,
+                                secondLevelApprover.name
+                            ).catch(err => {
+                                console.error('Error sending notification to 2nd level approver:', err);
+                            });
+                        }
                     } else {
                         // Single level approval (2nd level disabled)
                         expense.status = 'approved';
@@ -4380,13 +4491,21 @@
                         // Show success message immediately
                         showToast('success', 'Success', 'Expense approved successfully!');
                         
-                        // Email functionality disabled - will be enabled after configuration
-                        // const approverData = users[currentUser];
-                        // if (approverData && approverData.name) {
-                        //     sendApprovalEmail(expense, 'approved', approverData.name).catch(err => {
-                        //         console.error('Email sending failed (non-critical):', err);
-                        //     });
-                        // }
+                        // Send email notification to approver
+                        const approverData = users[currentUser];
+                        if (approverData && approverData.email && emailConfigured) {
+                            sendApprovalEmail(expense, 'approved', approverData.name, approverData.email).catch(err => {
+                                console.error('Email sending failed (non-critical):', err);
+                            });
+                        }
+                        
+                        // Notify expense creator
+                        const creatorData = users[expense.createdBy];
+                        if (creatorData && creatorData.email && emailConfigured) {
+                            sendApprovalEmail(expense, 'approved', creatorData.name, creatorData.email).catch(err => {
+                                console.error('Email sending failed (non-critical):', err);
+                            });
+                        }
                     }
                     
                     displayApprovals();
@@ -4434,13 +4553,21 @@
                     // Show success message immediately
                     showToast('success', 'Success', 'Expense rejected successfully!');
                     
-                    // Email functionality disabled - will be enabled after configuration
-                    // const approverData = users[currentUser];
-                    // if (approverData && approverData.name) {
-                    //     sendApprovalEmail(expense, 'rejected', approverData.name).catch(err => {
-                    //         console.error('Email sending failed (non-critical):', err);
-                    //     });
-                    // }
+                    // Send email notifications
+                    const approverData = users[currentUser];
+                    if (approverData && approverData.email && emailConfigured) {
+                        sendApprovalEmail(expense, 'rejected', approverData.name, approverData.email).catch(err => {
+                            console.error('Email sending failed (non-critical):', err);
+                        });
+                    }
+                    
+                    // Notify expense creator about rejection
+                    const creatorData = users[expense.createdBy];
+                    if (creatorData && creatorData.email && emailConfigured) {
+                        sendApprovalEmail(expense, 'rejected', creatorData.name, creatorData.email).catch(err => {
+                            console.error('Email sending failed (non-critical):', err);
+                        });
+                    }
                     
                     displayApprovals();
                     displayExpenses();
