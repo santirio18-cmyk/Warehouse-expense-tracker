@@ -4111,25 +4111,90 @@
 
         // Load users (Master Admin only)
         async function loadUsers() {
-            // Refresh users from database
-            users = await getUsers();
-            const userList = document.getElementById('userList');
-            userList.innerHTML = Object.entries(users).map(([username, user]) => `
-                <div class="user-card">
-                    <h4>${user.name}</h4>
-                    <p><strong>Employee Code (Username):</strong> ${username}</p>
-                    <p><strong>Email:</strong> ${user.email || 'N/A'}</p>
-                    <p><strong>Role:</strong> <span class="user-role ${user.role}">${user.role.toUpperCase()}</span></p>
-                    <p><strong>Warehouse:</strong> ${user.warehouse && user.warehouse !== '' ? (user.warehouse.includes(',') ? user.warehouse.split(',').map(w => getWarehouseName(w.trim())).join(', ') : getWarehouseName(user.warehouse)) : 'All Warehouses'}</p>
-                    <p id="password-${username}" style="display: none; margin-top: 10px; padding: 8px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px;">
-                        <strong>Password:</strong> <code style="font-size: 14px; color: #856404;">${user.password}</code>
-                    </p>
-                    <div style="display: flex; gap: 10px; margin-top: 10px;">
-                        <button onclick="togglePassword('${username}')" class="btn" style="flex: 1; padding: 8px; background: #17a2b8; color: white;">🔑 Show Password</button>
-                        <button onclick="deleteUser('${username}')" class="btn btn-danger" style="flex: 1; padding: 8px;">🗑️ Delete</button>
-                    </div>
-                </div>
-            `).join('');
+            try {
+                // Force reload users from database
+                users = await getUsers(true); // Force reload
+                const userList = document.getElementById('userList');
+                
+                if (!userList) {
+                    console.error('userList element not found!');
+                    return;
+                }
+                
+                // Check if users object is empty or invalid
+                if (!users || typeof users !== 'object' || Object.keys(users).length === 0) {
+                    userList.innerHTML = `
+                        <div style="padding: 20px; text-align: center; color: #666;">
+                            <p style="font-size: 18px; margin-bottom: 10px;">👤 No users found</p>
+                            <p>Create your first user using the form above.</p>
+                            <p style="margin-top: 10px; font-size: 12px; color: #999;">
+                                Note: Admin user should always exist. If you don't see admin, refresh the page.
+                            </p>
+                        </div>
+                    `;
+                    console.log('No users found. Users object:', users);
+                    return;
+                }
+                
+                // Filter out warehouse_ users (old format) and only show employee codes
+                const filteredUsers = {};
+                Object.keys(users).forEach(username => {
+                    // Keep admin and all non-warehouse_ users (employee codes like K01386)
+                    if (username === 'admin' || !username.startsWith('warehouse_')) {
+                        filteredUsers[username] = users[username];
+                    }
+                });
+                
+                if (Object.keys(filteredUsers).length === 0) {
+                    userList.innerHTML = `
+                        <div style="padding: 20px; text-align: center; color: #666;">
+                            <p style="font-size: 18px; margin-bottom: 10px;">👤 No users found</p>
+                            <p>Create your first user using the form above.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Display users
+                userList.innerHTML = Object.entries(filteredUsers).map(([username, user]) => {
+                    // Validate user data
+                    if (!user || !user.name || !user.role) {
+                        console.warn(`Invalid user data for ${username}:`, user);
+                        return '';
+                    }
+                    
+                    return `
+                        <div class="user-card">
+                            <h4>${user.name || 'Unknown'}</h4>
+                            <p><strong>Employee Code (Username):</strong> ${username}</p>
+                            <p><strong>Email:</strong> ${user.email || 'N/A'}</p>
+                            <p><strong>Role:</strong> <span class="user-role ${user.role}">${(user.role || 'unknown').toUpperCase()}</span></p>
+                            <p><strong>Warehouse:</strong> ${user.warehouse && user.warehouse !== '' ? (user.warehouse.includes(',') ? user.warehouse.split(',').map(w => getWarehouseName(w.trim())).join(', ') : getWarehouseName(user.warehouse)) : 'All Warehouses'}</p>
+                            <p id="password-${username}" style="display: none; margin-top: 10px; padding: 8px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px;">
+                                <strong>Password:</strong> <code style="font-size: 14px; color: #856404;">${user.password || 'N/A'}</code>
+                            </p>
+                            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                                <button onclick="togglePassword('${username}')" class="btn" style="flex: 1; padding: 8px; background: #17a2b8; color: white;">🔑 Show Password</button>
+                                <button onclick="deleteUser('${username}')" class="btn btn-danger" style="flex: 1; padding: 8px;">🗑️ Delete</button>
+                            </div>
+                        </div>
+                    `;
+                }).filter(html => html !== '').join('');
+                
+                console.log(`Loaded ${Object.keys(filteredUsers).length} user(s)`);
+            } catch (error) {
+                console.error('Error loading users:', error);
+                const userList = document.getElementById('userList');
+                if (userList) {
+                    userList.innerHTML = `
+                        <div style="padding: 20px; text-align: center; color: #d32f2f;">
+                            <p style="font-size: 18px; margin-bottom: 10px;">❌ Error loading users</p>
+                            <p>${error.message}</p>
+                            <button onclick="loadUsers()" class="btn" style="margin-top: 10px;">🔄 Retry</button>
+                        </div>
+                    `;
+                }
+            }
         }
         
         // Toggle password visibility
