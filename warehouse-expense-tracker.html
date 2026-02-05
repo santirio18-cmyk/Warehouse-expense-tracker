@@ -4090,9 +4090,31 @@
                     <p><strong>Email:</strong> ${user.email || 'N/A'}</p>
                     <p><strong>Role:</strong> <span class="user-role ${user.role}">${user.role.toUpperCase()}</span></p>
                     <p><strong>Warehouse:</strong> ${user.warehouse && user.warehouse !== '' ? (user.warehouse.includes(',') ? user.warehouse.split(',').map(w => getWarehouseName(w.trim())).join(', ') : getWarehouseName(user.warehouse)) : 'All Warehouses'}</p>
-                    <button onclick="deleteUser('${username}')" class="btn btn-danger" style="width: 100%; margin-top: 10px; padding: 8px;">🗑️ Delete User</button>
+                    <p id="password-${username}" style="display: none; margin-top: 10px; padding: 8px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px;">
+                        <strong>Password:</strong> <code style="font-size: 14px; color: #856404;">${user.password}</code>
+                    </p>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button onclick="togglePassword('${username}')" class="btn" style="flex: 1; padding: 8px; background: #17a2b8; color: white;">🔑 Show Password</button>
+                        <button onclick="deleteUser('${username}')" class="btn btn-danger" style="flex: 1; padding: 8px;">🗑️ Delete</button>
+                    </div>
                 </div>
             `).join('');
+        }
+        
+        // Toggle password visibility
+        function togglePassword(username) {
+            const passwordElement = document.getElementById(`password-${username}`);
+            const button = event.target;
+            
+            if (passwordElement.style.display === 'none') {
+                passwordElement.style.display = 'block';
+                button.textContent = '🙈 Hide Password';
+                button.style.background = '#6c757d';
+            } else {
+                passwordElement.style.display = 'none';
+                button.textContent = '🔑 Show Password';
+                button.style.background = '#17a2b8';
+            }
         }
         
         // Add new user form handler
