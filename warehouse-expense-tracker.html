@@ -1558,6 +1558,18 @@
                 
                 <div class="user-management">
                     <h3>👥 System Users</h3>
+                    <div style="margin-bottom: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px; border: 1px solid #2196f3;">
+                        <h4 style="margin-top: 0; color: #1976d2;">📦 Backup & Restore Users</h4>
+                        <p style="margin: 10px 0; color: #555;">Export users for backup or import users from a backup file</p>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="btn" onclick="exportUsersToJSON()" style="background: #4caf50; color: white;">📥 Export Users (JSON)</button>
+                            <button class="btn" onclick="exportUsersToCSV()" style="background: #2196f3; color: white;">📊 Export Users (CSV)</button>
+                            <label for="userFileInput" class="btn" style="background: #ff9800; color: white; cursor: pointer; display: inline-block;">
+                                📤 Import Users (JSON)
+                            </label>
+                            <input type="file" id="userFileInput" accept=".json" style="display: none;" onchange="importUsersFromFile(event)">
+                        </div>
+                    </div>
                     <div class="user-list" id="userList">
                         <!-- Users will be populated here -->
                     </div>
@@ -1861,8 +1873,9 @@
                     }
                     
                     // Also sync to localStorage as backup (merge, don't overwrite)
+                    // Preserve existing localStorage users to prevent data loss
                     const existingLocalUsers = getUsersLocalStorage(false); // Don't overwrite
-                    const mergedUsers = { ...existingLocalUsers, ...usersData }; // Merge Firebase users with local
+                    const mergedUsers = { ...existingLocalUsers, ...usersData }; // Firebase users take priority, but keep local users
                     localStorage.setItem('warehouseUsers', JSON.stringify(mergedUsers));
                     
                     return usersData;
@@ -4219,6 +4232,118 @@
                 users = await getUsers();
                 loadUsers();
             }
+        }
+        
+        // Export users to JSON file
+        function exportUsersToJSON() {
+            const usersData = JSON.parse(localStorage.getItem('warehouseUsers') || '{}');
+            const dataStr = JSON.stringify(usersData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `users_backup_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+            customAlert(`✅ Users exported successfully! (${Object.keys(usersData).length} users)`);
+        }
+        
+        // Export users to CSV file
+        function exportUsersToCSV() {
+            const usersData = JSON.parse(localStorage.getItem('warehouseUsers') || '{}');
+            let csv = 'Employee Code,Name,Email,Role,Warehouse,Password\n';
+            
+            Object.entries(usersData).forEach(([username, user]) => {
+                const name = (user.name || '').replace(/"/g, '""');
+                const email = (user.email || '').replace(/"/g, '""');
+                const role = (user.role || '').replace(/"/g, '""');
+                const warehouse = (user.warehouse || 'All Warehouses').replace(/"/g, '""');
+                const password = (user.password || '').replace(/"/g, '""');
+                csv += `"${username}","${name}","${email}","${role}","${warehouse}","${password}"\n`;
+            });
+            
+            const dataBlob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `users_backup_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            URL.revokeObjectURL(url);
+            customAlert(`✅ Users exported to CSV successfully! (${Object.keys(usersData).length} users)`);
+        }
+        
+        // Import users from JSON file
+        async function importUsersFromFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const importedUsers = JSON.parse(e.target.result);
+                    
+                    if (!importedUsers || typeof importedUsers !== 'object') {
+                        await customAlert('❌ Invalid file format! Please import a valid JSON file.');
+                        return;
+                    }
+                    
+                    // Count users to import
+                    const userCount = Object.keys(importedUsers).length;
+                    if (userCount === 0) {
+                        await customAlert('❌ No users found in the file!');
+                        return;
+                    }
+                    
+                    const confirmed = await customConfirm(
+                        `This will import ${userCount} user(s). Existing users with the same Employee Code will be overwritten. Continue?`
+                    );
+                    
+                    if (!confirmed) {
+                        event.target.value = ''; // Reset file input
+                        return;
+                    }
+                    
+                    // Load current users
+                    const currentUsers = await getUsers();
+                    
+                    // Merge imported users (imported users take priority)
+                    const mergedUsers = { ...currentUsers, ...importedUsers };
+                    
+                    // Save each imported user
+                    let importedCount = 0;
+                    let skippedCount = 0;
+                    
+                    for (const [username, userData] of Object.entries(importedUsers)) {
+                        // Validate user data structure
+                        if (!userData.password || !userData.role || !userData.name) {
+                            console.warn(`Skipping invalid user: ${username}`, userData);
+                            skippedCount++;
+                            continue;
+                        }
+                        
+                        await saveUser(username, userData);
+                        importedCount++;
+                    }
+                    
+                    // Reload users
+                    users = await getUsers();
+                    loadUsers();
+                    
+                    // Reset file input
+                    event.target.value = '';
+                    
+                    await customAlert(
+                        `✅ Import completed!\n` +
+                        `• Imported: ${importedCount} user(s)\n` +
+                        `• Skipped: ${skippedCount} user(s)`
+                    );
+                } catch (error) {
+                    console.error('Import error:', error);
+                    await customAlert('❌ Error importing users: ' + error.message);
+                    event.target.value = ''; // Reset file input
+                }
+            };
+            reader.readAsText(file);
         }
 
         // Approval functions
