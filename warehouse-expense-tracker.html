@@ -1860,8 +1860,10 @@
                         usersData['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
                     }
                     
-                    // Also sync to localStorage as backup
-                    localStorage.setItem('warehouseUsers', JSON.stringify(usersData));
+                    // Also sync to localStorage as backup (merge, don't overwrite)
+                    const existingLocalUsers = getUsersLocalStorage(false); // Don't overwrite
+                    const mergedUsers = { ...existingLocalUsers, ...usersData }; // Merge Firebase users with local
+                    localStorage.setItem('warehouseUsers', JSON.stringify(mergedUsers));
                     
                     return usersData;
                 } catch (error) {
@@ -1874,24 +1876,39 @@
             return getUsersLocalStorage();
         }
         
-        function getUsersLocalStorage() {
+        function getUsersLocalStorage(cleanupOldWarehouseUsers = true) {
             const storedUsers = localStorage.getItem('warehouseUsers');
             if (storedUsers) {
                 const parsedUsers = JSON.parse(storedUsers);
                 const cleanedUsers = {};
+                let hasChanges = false;
+                
                 Object.keys(parsedUsers).forEach(username => {
+                    // Keep admin always
                     if (username === 'admin') {
                         cleanedUsers[username] = parsedUsers[username];
-                    } else if (!username.startsWith('warehouse_')) {
+                    } 
+                    // Keep all users that don't start with 'warehouse_' (these are employee codes like K01386)
+                    else if (!username.startsWith('warehouse_')) {
                         cleanedUsers[username] = parsedUsers[username];
+                    } 
+                    // Only remove old warehouse_ users if cleanup is requested
+                    else if (cleanupOldWarehouseUsers) {
+                        hasChanges = true; // Mark that we're removing old warehouse users
                     }
                 });
                 
+                // Ensure admin user exists
                 if (!cleanedUsers['admin']) {
                     cleanedUsers['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
+                    hasChanges = true;
                 }
                 
-                localStorage.setItem('warehouseUsers', JSON.stringify(cleanedUsers));
+                // Only write back if we made changes (cleaned up old warehouse users or added admin)
+                if (hasChanges) {
+                    localStorage.setItem('warehouseUsers', JSON.stringify(cleanedUsers));
+                }
+                
                 return cleanedUsers;
             } else {
                 const defaultUsers = {
@@ -1919,7 +1936,7 @@
         }
         
         function saveUserLocalStorage(username, userData) {
-            const users = getUsersLocalStorage();
+            const users = getUsersLocalStorage(false); // Don't cleanup when saving
             users[username] = userData;
             localStorage.setItem('warehouseUsers', JSON.stringify(users));
         }
