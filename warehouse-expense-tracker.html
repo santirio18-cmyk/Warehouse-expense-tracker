@@ -4457,9 +4457,10 @@
                             <p id="password-${username}" style="display: none; margin-top: 10px; padding: 8px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px;">
                                 <strong>Password:</strong> <code style="font-size: 14px; color: #856404;">${user.password || 'N/A'}</code>
                             </p>
-                            <div style="display: flex; gap: 10px; margin-top: 10px;">
-                                <button onclick="togglePassword('${username}')" class="btn" style="flex: 1; padding: 8px; background: #17a2b8; color: white;">🔑 Show Password</button>
-                                <button onclick="deleteUser('${username}')" class="btn btn-danger" style="flex: 1; padding: 8px;">🗑️ Delete</button>
+                            <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+                                <button onclick="editUserWarehouses('${username}')" class="btn" style="flex: 1; min-width: 120px; padding: 8px; background: #ff9800; color: white;">✏️ Edit Warehouses</button>
+                                <button onclick="togglePassword('${username}')" class="btn" style="flex: 1; min-width: 120px; padding: 8px; background: #17a2b8; color: white;">🔑 Show Password</button>
+                                <button onclick="deleteUser('${username}')" class="btn btn-danger" style="flex: 1; min-width: 120px; padding: 8px;">🗑️ Delete</button>
                             </div>
                         </div>
                     `;
@@ -4582,6 +4583,83 @@
                 users = await getUsers();
                 loadUsers();
             }
+        }
+        
+        // Edit user warehouses
+        async function editUserWarehouses(username) {
+            if (!users[username]) {
+                await customAlert('❌ User not found!');
+                return;
+            }
+            
+            const user = users[username];
+            const currentWarehouses = user.warehouse ? user.warehouse.split(',').map(w => w.trim()).filter(w => w) : [];
+            
+            // Create modal for editing warehouses
+            const modalHTML = `
+                <div style="padding: 20px;">
+                    <h3 style="margin-top: 0;">✏️ Edit Warehouses for ${user.name}</h3>
+                    <p style="color: #666; margin-bottom: 15px;">
+                        <strong>Employee Code:</strong> ${username}<br>
+                        <strong>Role:</strong> ${user.role.toUpperCase()}<br>
+                        <strong>Current Warehouses:</strong> ${currentWarehouses.length > 0 ? currentWarehouses.map(w => getWarehouseName(w)).join(', ') : 'All Warehouses'}
+                    </p>
+                    <div class="form-group">
+                        <label for="editWarehouseSelect">Select Warehouses (Hold Ctrl/Cmd to select multiple)</label>
+                        <select id="editWarehouseSelect" multiple size="10" style="width: 100%; min-height: 200px; padding: 10px; border: 2px solid #667eea; border-radius: 8px;">
+                            ${Array.from({length: 28}, (_, i) => {
+                                const warehouseId = `warehouse_${i + 1}`;
+                                const warehouseName = getWarehouseName(warehouseId);
+                                const isSelected = currentWarehouses.includes(warehouseId);
+                                return `<option value="${warehouseId}" ${isSelected ? 'selected' : ''}>${warehouseName}</option>`;
+                            }).join('')}
+                        </select>
+                        <small style="color: #6c757d; font-size: 12px; display: block; margin-top: 5px;">
+                            💡 Tip: Leave empty for "All Warehouses" access
+                        </small>
+                    </div>
+                    <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                        <button onclick="closeCustomModal(); window.editWarehouseResolve(false);" class="btn" style="background: #6c757d; color: white;">Cancel</button>
+                        <button onclick="saveUserWarehouses('${username}');" class="btn" style="background: #28a745; color: white;">💾 Save Changes</button>
+                    </div>
+                </div>
+            `;
+            
+            // Show modal and wait for user action
+            return new Promise((resolve) => {
+                window.editWarehouseResolve = resolve;
+                showCustomModal('Edit User Warehouses', modalHTML);
+            });
+        }
+        
+        async function saveUserWarehouses(username) {
+            const warehouseSelect = document.getElementById('editWarehouseSelect');
+            const selectedWarehouses = Array.from(warehouseSelect.selectedOptions).map(option => option.value);
+            const warehouseString = selectedWarehouses.length > 0 ? selectedWarehouses.join(',') : '';
+            
+            // Validate warehouse requirement for warehouse role
+            if (users[username].role === 'warehouse' && selectedWarehouses.length === 0) {
+                await customAlert('❌ At least one warehouse is required for warehouse entry users!');
+                return;
+            }
+            
+            // Update user's warehouses
+            users[username].warehouse = warehouseString;
+            
+            // Save to database
+            await saveUser(username, users[username]);
+            
+            // Close modal
+            closeCustomModal();
+            if (window.editWarehouseResolve) {
+                window.editWarehouseResolve(true);
+            }
+            
+            await customAlert(`✅ Warehouses updated successfully for ${users[username].name}!`);
+            
+            // Reload users list
+            users = await getUsers();
+            loadUsers();
         }
         
         // Export users to JSON file
