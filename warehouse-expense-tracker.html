@@ -2909,8 +2909,8 @@
             loginButton.textContent = 'Logging in...';
             
             try {
-                // Load users (use cache if available, otherwise load from storage)
-                users = await getUsers();
+                // Load users (force reload to ensure latest data)
+                users = await getUsers(true);
                 
                 // Ensure admin user exists (fallback)
                 if (!users['admin']) {
@@ -2918,9 +2918,29 @@
                     users['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
                 }
                 
+                // Ensure K02815 (Dhanalakshmi) exists - 2nd Level Approver
+                if (!users['K02815']) {
+                    await saveUser('K02815', {
+                        password: 'K02815@123',
+                        role: 'approver',
+                        name: 'Dhanalakshmi',
+                        employeeCode: 'K02815',
+                        email: 'dhanalakshmi.dhanapal@tvs.in',
+                        warehouse: ''
+                    });
+                    users['K02815'] = {
+                        password: 'K02815@123',
+                        role: 'approver',
+                        name: 'Dhanalakshmi',
+                        employeeCode: 'K02815',
+                        email: 'dhanalakshmi.dhanapal@tvs.in',
+                        warehouse: ''
+                    };
+                }
+                
                 // Check if user exists and password matches
                 if (!users[username]) {
-                    await customAlert('Invalid username or password!');
+                    await customAlert(`Invalid username or password!\n\nUser "${username}" not found.\n\nPlease check:\n• Username is correct\n• User exists in the system\n• Contact admin if user needs to be created`);
                     loginButton.disabled = false;
                     loginButton.textContent = originalButtonText;
                     return;
