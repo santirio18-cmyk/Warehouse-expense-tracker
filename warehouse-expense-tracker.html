@@ -3899,7 +3899,8 @@
         }
 
         // Budget functions
-        let uploadedBudgetData = {};
+        let uploadedBudgetData = {}; // For single warehouse upload (old format)
+        let uploadedBudgetDataByWarehouse = {}; // For multi-warehouse upload (new format)
         
         function loadBudgetManagement() {
             // Show budget management for master and approver users
@@ -3913,20 +3914,49 @@
         }
         
         async function saveUploadedBudgets() {
-            const warehouse = document.getElementById('budgetWarehouse').value;
             const month = document.getElementById('budgetMonth').value;
-            const budgetKey = `${warehouse}_${month}`;
             
-            budgets[budgetKey] = uploadedBudgetData;
+            // Check if multi-warehouse format or single warehouse format
+            const isMultiWarehouse = Object.keys(uploadedBudgetDataByWarehouse).length > 0;
             
-            // Save each budget entry to Firebase or localStorage
-            for (const [category, amount] of Object.entries(uploadedBudgetData)) {
-                await saveBudget(warehouse, month, category, amount);
+            if (isMultiWarehouse) {
+                // Save budgets for all warehouses
+                let savedCount = 0;
+                const warehouses = Object.keys(uploadedBudgetDataByWarehouse);
+                
+                for (const warehouseId of warehouses) {
+                    const warehouseBudgets = uploadedBudgetDataByWarehouse[warehouseId];
+                    const budgetKey = `${warehouseId}_${month}`;
+                    
+                    budgets[budgetKey] = warehouseBudgets;
+                    
+                    // Save each budget entry to Firebase or localStorage
+                    for (const [category, amount] of Object.entries(warehouseBudgets)) {
+                        await saveBudget(warehouseId, month, category, amount);
+                    }
+                    savedCount++;
+                }
+                
+                await customAlert(`✅ Budgets saved successfully for ${savedCount} warehouse(s)!`);
+                document.getElementById('budgetPreview').style.display = 'none';
+                uploadedBudgetDataByWarehouse = {};
+            } else {
+                // Single warehouse format: Use selected warehouse
+                const warehouse = document.getElementById('budgetWarehouse').value;
+                const budgetKey = `${warehouse}_${month}`;
+                
+                budgets[budgetKey] = uploadedBudgetData;
+                
+                // Save each budget entry to Firebase or localStorage
+                for (const [category, amount] of Object.entries(uploadedBudgetData)) {
+                    await saveBudget(warehouse, month, category, amount);
+                }
+                
+                await customAlert('✅ Budgets saved successfully!');
+                document.getElementById('budgetPreview').style.display = 'none';
+                uploadedBudgetData = {};
             }
             
-            alert('✅ Budgets saved successfully!');
-            document.getElementById('budgetPreview').style.display = 'none';
-            uploadedBudgetData = {};
             loadBudgetVisualization();
         }
         
@@ -4143,10 +4173,23 @@
                 'Packing Material', 'Internet / Broadband', 'Diesel Generator', 'AMC', 'Other'
             ];
             
-            const csvContent = [
-                'Category,Budget',
-                ...defaultCategories.map(cat => `${cat},0`)
-            ].join('\n');
+            // Get all warehouses (all 28 warehouses)
+            const allWarehouses = Array.from({length: 28}, (_, i) => ({
+                id: `warehouse_${i + 1}`,
+                name: getWarehouseName(`warehouse_${i + 1}`)
+            }));
+            
+            // Create CSV with Warehouse, Category, Budget format
+            // Each warehouse gets a row for each category
+            const csvRows = ['Warehouse,Warehouse ID,Category,Budget'];
+            
+            allWarehouses.forEach(warehouse => {
+                defaultCategories.forEach(category => {
+                    csvRows.push(`${warehouse.name},${warehouse.id},${category},0`);
+                });
+            });
+            
+            const csvContent = csvRows.join('\n');
             
             const blob = new Blob([csvContent], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
@@ -4170,17 +4213,44 @@
                 const csv = e.target.result;
                 const lines = csv.split('\n');
                 
+                // Check if it's the new format (with Warehouse column) or old format
+                const header = lines[0].toLowerCase();
+                const isNewFormat = header.includes('warehouse');
+                
                 // Parse CSV
                 uploadedBudgetData = {};
+                uploadedBudgetDataByWarehouse = {}; // Store budgets by warehouse
+                
                 for (let i = 1; i < lines.length; i++) {
                     const line = lines[i].trim();
                     if (!line) continue;
                     
-                    const [category, budget] = line.split(',');
-                    if (category && budget) {
-                        const budgetValue = parseFloat(budget);
-                        if (!isNaN(budgetValue) && budgetValue > 0) {
-                            uploadedBudgetData[category.trim()] = budgetValue;
+                    if (isNewFormat) {
+                        // New format: Warehouse,Warehouse ID,Category,Budget
+                        const parts = line.split(',');
+                        if (parts.length >= 4) {
+                            const warehouseName = parts[0].trim();
+                            const warehouseId = parts[1].trim();
+                            const category = parts[2].trim();
+                            const budget = parts[3].trim();
+                            
+                            const budgetValue = parseFloat(budget);
+                            if (!isNaN(budgetValue) && budgetValue >= 0 && warehouseId && category) {
+                                // Store by warehouse
+                                if (!uploadedBudgetDataByWarehouse[warehouseId]) {
+                                    uploadedBudgetDataByWarehouse[warehouseId] = {};
+                                }
+                                uploadedBudgetDataByWarehouse[warehouseId][category] = budgetValue;
+                            }
+                        }
+                    } else {
+                        // Old format: Category,Budget (for single warehouse)
+                        const [category, budget] = line.split(',');
+                        if (category && budget) {
+                            const budgetValue = parseFloat(budget);
+                            if (!isNaN(budgetValue) && budgetValue > 0) {
+                                uploadedBudgetData[category.trim()] = budgetValue;
+                            }
                         }
                     }
                 }
@@ -4197,19 +4267,55 @@
             const previewDiv = document.getElementById('budgetPreview');
             const previewListDiv = document.getElementById('budgetPreviewList');
             
-            if (Object.keys(uploadedBudgetData).length === 0) {
+            // Check if multi-warehouse format or single warehouse format
+            const isMultiWarehouse = Object.keys(uploadedBudgetDataByWarehouse).length > 0;
+            
+            if (!isMultiWarehouse && Object.keys(uploadedBudgetData).length === 0) {
                 await customAlert('❌ No valid budget data found in the CSV file.');
                 return;
             }
             
-            previewListDiv.innerHTML = Object.entries(uploadedBudgetData)
-                .sort((a, b) => a[0].localeCompare(b[0]))
-                .map(([category, budget]) => `
-                    <div style="display: flex; justify-content: space-between; padding: 10px; margin-bottom: 5px; background: #f8f9fa; border-radius: 5px;">
-                        <span style="font-weight: 600;">${category}</span>
-                        <span style="color: #28a745;">₹${budget.toFixed(2)}</span>
-                    </div>
-                `).join('');
+            if (isMultiWarehouse) {
+                // Multi-warehouse format: Show all warehouses
+                let previewHTML = '<div style="max-height: 500px; overflow-y: auto;">';
+                const warehouses = Object.keys(uploadedBudgetDataByWarehouse).sort();
+                
+                warehouses.forEach(warehouseId => {
+                    const warehouseBudgets = uploadedBudgetDataByWarehouse[warehouseId];
+                    const warehouseName = getWarehouseName(warehouseId);
+                    const totalBudget = Object.values(warehouseBudgets).reduce((sum, val) => sum + val, 0);
+                    
+                    previewHTML += `
+                        <div style="margin-bottom: 20px; border: 2px solid #28a745; border-radius: 8px; padding: 15px; background: #f8f9fa;">
+                            <h4 style="margin-top: 0; color: #28a745; margin-bottom: 10px;">
+                                📦 ${warehouseName} (${warehouseId})
+                                <span style="float: right; font-size: 14px; color: #666;">Total: ₹${totalBudget.toFixed(2)}</span>
+                            </h4>
+                            ${Object.entries(warehouseBudgets)
+                                .sort((a, b) => a[0].localeCompare(b[0]))
+                                .map(([category, budget]) => `
+                                    <div style="display: flex; justify-content: space-between; padding: 8px; margin-bottom: 5px; background: white; border-radius: 5px;">
+                                        <span>${category}</span>
+                                        <span style="color: #28a745; font-weight: 600;">₹${budget.toFixed(2)}</span>
+                                    </div>
+                                `).join('')}
+                        </div>
+                    `;
+                });
+                
+                previewHTML += '</div>';
+                previewListDiv.innerHTML = previewHTML;
+            } else {
+                // Single warehouse format: Show categories only
+                previewListDiv.innerHTML = Object.entries(uploadedBudgetData)
+                    .sort((a, b) => a[0].localeCompare(b[0]))
+                    .map(([category, budget]) => `
+                        <div style="display: flex; justify-content: space-between; padding: 10px; margin-bottom: 5px; background: #f8f9fa; border-radius: 5px;">
+                            <span style="font-weight: 600;">${category}</span>
+                            <span style="color: #28a745;">₹${budget.toFixed(2)}</span>
+                        </div>
+                    `).join('');
+            }
             
             previewDiv.style.display = 'block';
         }
