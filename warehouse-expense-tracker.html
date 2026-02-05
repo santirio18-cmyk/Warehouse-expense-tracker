@@ -1839,42 +1839,38 @@
         // ============================================
         
         // Users Service
-        async function getUsers() {
-            // Try Firebase first if configured (even if not fully initialized yet)
-            if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
+        async function getUsers(forceReload = false) {
+            // Return cached users if already loaded and not forcing reload
+            if (!forceReload && Object.keys(users).length > 0) {
+                return users;
+            }
+            
+            // Try Firebase first if configured and initialized
+            if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE" && db) {
                 try {
-                    // Wait for Firebase to initialize if it's still initializing
-                    let attempts = 0;
-                    while (!db && attempts < 10) {
-                        await new Promise(resolve => setTimeout(resolve, 100));
-                        attempts++;
+                    const snapshot = await db.collection('users').get();
+                    const usersData = {};
+                    snapshot.forEach(doc => {
+                        usersData[doc.id] = doc.data();
+                    });
+                    
+                    // Ensure admin user exists
+                    if (!usersData['admin']) {
+                        await saveUser('admin', { password: 'admin123', role: 'master', name: 'Master Admin' });
+                        usersData['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
                     }
                     
-                    if (db) {
-                        const snapshot = await db.collection('users').get();
-                        const users = {};
-                        snapshot.forEach(doc => {
-                            users[doc.id] = doc.data();
-                        });
-                        
-                        // Ensure admin user exists
-                        if (!users['admin']) {
-                            await saveUser('admin', { password: 'admin123', role: 'master', name: 'Master Admin' });
-                            users['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
-                        }
-                        
-                        // Also sync to localStorage as backup
-                        localStorage.setItem('warehouseUsers', JSON.stringify(users));
-                        
-                        return users;
-                    }
+                    // Also sync to localStorage as backup
+                    localStorage.setItem('warehouseUsers', JSON.stringify(usersData));
+                    
+                    return usersData;
                 } catch (error) {
                     console.error('Error loading users from Firebase:', error);
                     // Fall through to localStorage
                 }
             }
             
-            // Fallback to localStorage
+            // Fallback to localStorage (fast, no network delay)
             return getUsersLocalStorage();
         }
         
@@ -2793,8 +2789,7 @@
             loginButton.textContent = 'Logging in...';
             
             try {
-                // Always reload users to ensure we have latest data
-                // Try Firebase first if configured, then fallback to localStorage
+                // Load users (use cache if available, otherwise load from storage)
                 users = await getUsers();
                 
                 // Ensure admin user exists (fallback)
@@ -2818,9 +2813,7 @@
                     return;
                 }
                 
-                // Login successful
-                currentUser = username;
-                currentWarehouse = users[username].warehouse || null;
+                // Login successful - show UI immediately
                 currentUser = username;
                 currentWarehouse = users[username].warehouse || null;
                 
@@ -2835,8 +2828,7 @@
                     document.getElementById('warehouseSelector').style.display = 'block';
                     document.getElementById('usersTab').style.display = 'block';
                     document.getElementById('approvalsTab').style.display = 'block';
-                    // Reload users to ensure cleanup is applied
-                    users = await getUsers();
+                    // Reload users list UI (users data already loaded above)
                     loadUsers();
                     // Filter warehouse options based on user's warehouse access
                     filterWarehouseOptions('warehouseSelect');
@@ -2885,11 +2877,24 @@
                     document.getElementById('approvalsTab').style.display = 'none';
                 }
                 
-                // Load data (ensure expenses and budgets are loaded)
-                expenses = await getExpenses();
-                budgets = await getBudgets();
-                displayExpenses();
-                updateSummary();
+                // Show UI immediately, load data in background
+                // Load expenses and budgets asynchronously (don't block UI)
+                Promise.all([
+                    getExpenses().then(data => { expenses = data; }),
+                    getBudgets().then(data => { budgets = data; })
+                ]).then(() => {
+                    displayExpenses();
+                    updateSummary();
+                }).catch(error => {
+                    console.error('Error loading data:', error);
+                    // Still show UI even if data loading fails
+                    displayExpenses();
+                    updateSummary();
+                });
+                
+                // Restore button state
+                loginButton.disabled = false;
+                loginButton.textContent = originalButtonText;
             } catch (error) {
                 console.error('Login error:', error);
                 await customAlert('Login failed: ' + (error.message || 'Unknown error. Please try again.'));
