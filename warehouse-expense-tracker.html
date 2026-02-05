@@ -2863,10 +2863,29 @@
 
         // Initialize
         const today = new Date().toISOString().split('T')[0];
-        document.getElementById('expenseDate').value = today;
-        document.getElementById('expenseDate').setAttribute('max', today); // Prevent future dates
+        const expenseDateInput = document.getElementById('expenseDate');
+        if (expenseDateInput) {
+            expenseDateInput.value = today;
+            expenseDateInput.setAttribute('max', today); // Prevent future dates
+            // Also set it as a property to ensure it works
+            expenseDateInput.max = today;
+        }
         document.getElementById('expenseTime').value = new Date().toTimeString().slice(0, 5);
         document.getElementById('budgetMonth').value = new Date().toISOString().slice(0, 7);
+        
+        // Update max date every second to prevent future dates (in case user changes system date)
+        setInterval(() => {
+            const todayUpdate = new Date().toISOString().split('T')[0];
+            const dateInput = document.getElementById('expenseDate');
+            if (dateInput) {
+                dateInput.setAttribute('max', todayUpdate);
+                dateInput.max = todayUpdate;
+                // If current value is in the future, reset to today
+                if (dateInput.value > todayUpdate) {
+                    dateInput.value = todayUpdate;
+                }
+            }
+        }, 1000);
         
         // Initialize warehouse field visibility
         if (document.getElementById('newRole')) {
@@ -3256,11 +3275,22 @@
             // Date validation - cannot be in the future (only today and past dates allowed)
             const today = new Date();
             today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
-            const submittedDate = new Date(expenseDate);
+            const submittedDate = new Date(expenseDate + 'T00:00:00'); // Ensure time is set to midnight
             submittedDate.setHours(0, 0, 0, 0);
+            
+            // Also check the input's max attribute as a double check
+            const dateInput = document.getElementById('expenseDate');
+            if (dateInput && dateInput.value > dateInput.max) {
+                showToast('error', 'Date Error', 'Expense date cannot be in the future. Only today and past dates are allowed.');
+                dateInput.value = new Date().toISOString().split('T')[0]; // Reset to today
+                return;
+            }
             
             if (submittedDate > today) {
                 showToast('error', 'Date Error', 'Expense date cannot be in the future. Only today and past dates are allowed.');
+                if (dateInput) {
+                    dateInput.value = new Date().toISOString().split('T')[0]; // Reset to today
+                }
                 return;
             }
             
@@ -3377,8 +3407,12 @@
                 // Reset form immediately
                 document.getElementById('expenseForm').reset();
                 const todayDate = new Date().toISOString().split('T')[0];
-                document.getElementById('expenseDate').value = todayDate;
-                document.getElementById('expenseDate').setAttribute('max', todayDate); // Ensure max date is set
+                const expenseDateInput = document.getElementById('expenseDate');
+                if (expenseDateInput) {
+                    expenseDateInput.value = todayDate;
+                    expenseDateInput.setAttribute('max', todayDate); // Ensure max date is set
+                    expenseDateInput.max = todayDate; // Set as property too
+                }
                 document.getElementById('expenseTime').value = new Date().toTimeString().slice(0, 5);
                 
                 // Update UI immediately
