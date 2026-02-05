@@ -1851,79 +1851,91 @@
         // DATA SERVICE FUNCTIONS (Firebase or localStorage)
         // ============================================
         
-        // Users Service
+        // Users Service - SIMPLIFIED AND SAFE
         async function getUsers(forceReload = false) {
-            // Return cached users if already loaded and not forcing reload
-            if (!forceReload && Object.keys(users).length > 0) {
-                return users;
-            }
+            // Always get fresh data from localStorage (most reliable)
+            // Don't use cache to avoid stale data
+            const localUsers = getUsersLocalStorage(false); // Never cleanup
             
-            // Try Firebase first if configured and initialized
+            // If Firebase is configured, merge Firebase users with local (but don't overwrite local)
             if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE" && db) {
                 try {
                     const snapshot = await db.collection('users').get();
-                    const usersData = {};
+                    const firebaseUsers = {};
                     snapshot.forEach(doc => {
-                        usersData[doc.id] = doc.data();
+                        firebaseUsers[doc.id] = doc.data();
                     });
                     
-                    // Ensure admin user exists
-                    if (!usersData['admin']) {
-                        await saveUser('admin', { password: 'admin123', role: 'master', name: 'Master Admin' });
-                        usersData['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
+                    // Merge: Local users take priority (they're more recent), Firebase fills gaps
+                    const mergedUsers = { ...firebaseUsers, ...localUsers };
+                    
+                    // Ensure admin exists
+                    if (!mergedUsers['admin']) {
+                        mergedUsers['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
                     }
                     
-                    // Also sync to localStorage as backup (merge, don't overwrite)
-                    // Preserve existing localStorage users to prevent data loss
-                    const existingLocalUsers = getUsersLocalStorage(false); // Don't overwrite
-                    const mergedUsers = { ...existingLocalUsers, ...usersData }; // Firebase users take priority, but keep local users
+                    // Update localStorage with merged data (but preserve local users)
                     localStorage.setItem('warehouseUsers', JSON.stringify(mergedUsers));
                     
-                    return usersData;
+                    return mergedUsers;
                 } catch (error) {
                     console.error('Error loading users from Firebase:', error);
                     // Fall through to localStorage
                 }
             }
             
-            // Fallback to localStorage (fast, no network delay)
-            return getUsersLocalStorage();
+            // Return localStorage users (always available)
+            return localUsers;
         }
         
-        function getUsersLocalStorage(cleanupOldWarehouseUsers = true) {
+        function getUsersLocalStorage(cleanupOldWarehouseUsers = false) {
+            // NEVER cleanup by default - only when explicitly requested
             const storedUsers = localStorage.getItem('warehouseUsers');
             if (storedUsers) {
-                const parsedUsers = JSON.parse(storedUsers);
-                const cleanedUsers = {};
-                let hasChanges = false;
-                
-                Object.keys(parsedUsers).forEach(username => {
-                    // Keep admin always
-                    if (username === 'admin') {
-                        cleanedUsers[username] = parsedUsers[username];
-                    } 
-                    // Keep all users that don't start with 'warehouse_' (these are employee codes like K01386)
-                    else if (!username.startsWith('warehouse_')) {
-                        cleanedUsers[username] = parsedUsers[username];
-                    } 
-                    // Only remove old warehouse_ users if cleanup is requested
-                    else if (cleanupOldWarehouseUsers) {
-                        hasChanges = true; // Mark that we're removing old warehouse users
+                try {
+                    const parsedUsers = JSON.parse(storedUsers);
+                    const cleanedUsers = {};
+                    let hasChanges = false;
+                    
+                    // Keep ALL users - don't filter anything unless explicitly cleaning up
+                    Object.keys(parsedUsers).forEach(username => {
+                        // Keep admin always
+                        if (username === 'admin') {
+                            cleanedUsers[username] = parsedUsers[username];
+                        } 
+                        // Keep all users that don't start with 'warehouse_' (employee codes like K01386)
+                        else if (!username.startsWith('warehouse_')) {
+                            cleanedUsers[username] = parsedUsers[username];
+                        } 
+                        // Only remove old warehouse_ users if cleanup is explicitly requested
+                        else if (cleanupOldWarehouseUsers) {
+                            hasChanges = true; // Mark that we're removing old warehouse users
+                        } else {
+                            // Don't remove, keep them
+                            cleanedUsers[username] = parsedUsers[username];
+                        }
+                    });
+                    
+                    // Ensure admin user exists
+                    if (!cleanedUsers['admin']) {
+                        cleanedUsers['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
+                        hasChanges = true;
                     }
-                });
-                
-                // Ensure admin user exists
-                if (!cleanedUsers['admin']) {
-                    cleanedUsers['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
-                    hasChanges = true;
+                    
+                    // Only write back if we made changes (added admin) - NEVER overwrite otherwise
+                    if (hasChanges && cleanupOldWarehouseUsers) {
+                        localStorage.setItem('warehouseUsers', JSON.stringify(cleanedUsers));
+                    }
+                    
+                    return cleanedUsers;
+                } catch (e) {
+                    console.error('Error parsing users:', e);
+                    // Return default admin if parsing fails
+                    const defaultUsers = {
+                        'admin': { password: 'admin123', role: 'master', name: 'Master Admin' }
+                    };
+                    return defaultUsers;
                 }
-                
-                // Only write back if we made changes (cleaned up old warehouse users or added admin)
-                if (hasChanges) {
-                    localStorage.setItem('warehouseUsers', JSON.stringify(cleanedUsers));
-                }
-                
-                return cleanedUsers;
             } else {
                 const defaultUsers = {
                     'admin': { password: 'admin123', role: 'master', name: 'Master Admin' }
@@ -1950,9 +1962,30 @@
         }
         
         function saveUserLocalStorage(username, userData) {
-            const users = getUsersLocalStorage(false); // Don't cleanup when saving
+            // Always get fresh users from localStorage (don't use cache)
+            const storedUsers = localStorage.getItem('warehouseUsers');
+            let users = {};
+            
+            if (storedUsers) {
+                try {
+                    users = JSON.parse(storedUsers);
+                } catch (e) {
+                    console.error('Error parsing users from localStorage:', e);
+                    users = {};
+                }
+            }
+            
+            // Add/update the user
             users[username] = userData;
-            localStorage.setItem('warehouseUsers', JSON.stringify(users));
+            
+            // Save back to localStorage
+            try {
+                localStorage.setItem('warehouseUsers', JSON.stringify(users));
+                console.log(`✅ User ${username} saved successfully`);
+            } catch (e) {
+                console.error('Error saving user to localStorage:', e);
+                alert('Error saving user. Please try again.');
+            }
         }
         
         async function deleteUserFirebase(username) {
