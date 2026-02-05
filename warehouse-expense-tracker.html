@@ -1998,7 +1998,8 @@
             // Save back to localStorage
             try {
                 localStorage.setItem('warehouseUsers', JSON.stringify(users));
-                console.log(`✅ User ${username} saved successfully`);
+                console.log(`✅ User ${username} saved successfully to localStorage`);
+                console.log(`User data:`, userData);
             } catch (e) {
                 console.error('Error saving user to localStorage:', e);
                 alert('Error saving user. Please try again.');
@@ -2920,23 +2921,27 @@
                 
                 // Ensure K02815 (Dhanalakshmi) exists - 2nd Level Approver
                 if (!users['K02815']) {
-                    await saveUser('K02815', {
-                        password: 'K02815@123',
-                        role: 'approver',
-                        name: 'Dhanalakshmi',
-                        employeeCode: 'K02815',
-                        email: 'dhanalakshmi.dhanapal@tvs.in',
-                        warehouse: ''
-                    });
-                    users['K02815'] = {
-                        password: 'K02815@123',
-                        role: 'approver',
-                        name: 'Dhanalakshmi',
-                        employeeCode: 'K02815',
-                        email: 'dhanalakshmi.dhanapal@tvs.in',
-                        warehouse: ''
-                    };
+                    try {
+                        const userData = {
+                            password: 'K02815@123',
+                            role: 'approver',
+                            name: 'Dhanalakshmi',
+                            employeeCode: 'K02815',
+                            email: 'dhanalakshmi.dhanapal@tvs.in',
+                            warehouse: ''
+                        };
+                        await saveUser('K02815', userData);
+                        users['K02815'] = userData;
+                        console.log('✅ User K02815 created during login');
+                        // Reload users to ensure it's saved
+                        users = await getUsers(true);
+                    } catch (error) {
+                        console.error('Error creating K02815 during login:', error);
+                    }
                 }
+                
+                // Reload users one more time to ensure we have latest data
+                users = await getUsers(true);
                 
                 // Check if user exists and password matches
                 if (!users[username]) {
