@@ -1840,28 +1840,42 @@
         
         // Users Service
         async function getUsers() {
-            if (useFirebase && db) {
+            // Try Firebase first if configured (even if not fully initialized yet)
+            if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
                 try {
-                    const snapshot = await db.collection('users').get();
-                    const users = {};
-                    snapshot.forEach(doc => {
-                        users[doc.id] = doc.data();
-                    });
-                    
-                    // Ensure admin user exists
-                    if (!users['admin']) {
-                        await saveUser('admin', { password: 'admin123', role: 'master', name: 'Master Admin' });
-                        users['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
+                    // Wait for Firebase to initialize if it's still initializing
+                    let attempts = 0;
+                    while (!db && attempts < 10) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        attempts++;
                     }
                     
-                    return users;
+                    if (db) {
+                        const snapshot = await db.collection('users').get();
+                        const users = {};
+                        snapshot.forEach(doc => {
+                            users[doc.id] = doc.data();
+                        });
+                        
+                        // Ensure admin user exists
+                        if (!users['admin']) {
+                            await saveUser('admin', { password: 'admin123', role: 'master', name: 'Master Admin' });
+                            users['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
+                        }
+                        
+                        // Also sync to localStorage as backup
+                        localStorage.setItem('warehouseUsers', JSON.stringify(users));
+                        
+                        return users;
+                    }
                 } catch (error) {
                     console.error('Error loading users from Firebase:', error);
-                    return getUsersLocalStorage();
+                    // Fall through to localStorage
                 }
-            } else {
-                return getUsersLocalStorage();
             }
+            
+            // Fallback to localStorage
+            return getUsersLocalStorage();
         }
         
         function getUsersLocalStorage() {
@@ -2769,15 +2783,44 @@
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const username = document.getElementById('username').value;
+            const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
             
-            // Ensure users are loaded
-            if (Object.keys(users).length === 0) {
-                users = await getUsers();
-            }
+            // Show loading state
+            const loginButton = e.target.querySelector('button[type="submit"]');
+            const originalButtonText = loginButton.textContent;
+            loginButton.disabled = true;
+            loginButton.textContent = 'Logging in...';
             
-            if (users[username] && users[username].password === password) {
+            try {
+                // Always reload users to ensure we have latest data
+                // Try Firebase first if configured, then fallback to localStorage
+                users = await getUsers();
+                
+                // Ensure admin user exists (fallback)
+                if (!users['admin']) {
+                    await saveUser('admin', { password: 'admin123', role: 'master', name: 'Master Admin' });
+                    users['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
+                }
+                
+                // Check if user exists and password matches
+                if (!users[username]) {
+                    await customAlert('Invalid username or password!');
+                    loginButton.disabled = false;
+                    loginButton.textContent = originalButtonText;
+                    return;
+                }
+                
+                if (users[username].password !== password) {
+                    await customAlert('Invalid username or password!');
+                    loginButton.disabled = false;
+                    loginButton.textContent = originalButtonText;
+                    return;
+                }
+                
+                // Login successful
+                currentUser = username;
+                currentWarehouse = users[username].warehouse || null;
                 currentUser = username;
                 currentWarehouse = users[username].warehouse || null;
                 
@@ -2847,8 +2890,11 @@
                 budgets = await getBudgets();
                 displayExpenses();
                 updateSummary();
-            } else {
-                await customAlert('Invalid username or password!');
+            } catch (error) {
+                console.error('Login error:', error);
+                await customAlert('Login failed: ' + (error.message || 'Unknown error. Please try again.'));
+                loginButton.disabled = false;
+                loginButton.textContent = originalButtonText;
             }
         });
 
