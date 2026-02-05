@@ -1700,14 +1700,19 @@
         }
         
         // ============================================
-        // 2ND LEVEL APPROVAL CONFIGURATION
+        // MULTI-LEVEL APPROVAL CONFIGURATION
         // ============================================
-        // Set the username of the 2nd level approver (only 1 ID)
-        // This user will be the final approver for all transactions
-        const SECOND_LEVEL_APPROVER_ID = 'K01706'; // Varadarajan Krishnamachari - 2nd Level Approver
+        // 2nd Level Approver (first approver after initial approval)
+        const SECOND_LEVEL_APPROVER_ID = 'K02815'; // Dhanalakshmi - 2nd Level Approver
+        
+        // 3rd Level Approver (final approver for all transactions)
+        const THIRD_LEVEL_APPROVER_ID = 'K01706'; // Varadarajan Krishnamachari - 3rd Level Approver
         
         // Check if 2nd level approval is enabled
         const ENABLE_2ND_LEVEL_APPROVAL = true; // Set to false to disable 2nd level approval
+        
+        // Check if 3rd level approval is enabled
+        const ENABLE_3RD_LEVEL_APPROVAL = true; // Set to false to disable 3rd level approval
         
         // ============================================
         // EMAIL SENDING FUNCTIONS
@@ -2479,6 +2484,31 @@
             expenses = await getExpenses();
             budgets = await getBudgets();
             
+            // Create user K02815 (Dhanalakshmi) - 2nd Level Approver if it doesn't exist
+            if (!users['K02815']) {
+                try {
+                    await saveUser('K02815', {
+                        password: 'K02815@123', // Default password - user should change it
+                        role: 'approver',
+                        name: 'Dhanalakshmi',
+                        employeeCode: 'K02815',
+                        email: 'dhanalakshmi.dhanapal@tvs.in',
+                        warehouse: '' // Empty means all warehouses
+                    });
+                    users['K02815'] = {
+                        password: 'K02815@123',
+                        role: 'approver',
+                        name: 'Dhanalakshmi',
+                        employeeCode: 'K02815',
+                        email: 'dhanalakshmi.dhanapal@tvs.in',
+                        warehouse: ''
+                    };
+                    console.log('✅ User K02815 (Dhanalakshmi) created as 2nd Level Approver');
+                } catch (error) {
+                    console.error('Error creating user K02815:', error);
+                }
+            }
+            
             // Initialize budgets for 3 warehouses on first load
             const budgetsInitialized = localStorage.getItem('budgetsInitialized');
             if (!budgetsInitialized) {
@@ -2685,6 +2715,8 @@
                 return '1st Level Approval Pending';
             } else if (status === 'first_approved') {
                 return '2nd Level Approval Pending';
+            } else if (status === 'second_approved') {
+                return '3rd Level Approval Pending';
             } else if (status === 'approved') {
                 return 'APPROVED';
             } else if (status === 'rejected') {
@@ -2696,6 +2728,10 @@
         function hasWarehouseAccess(user, warehouse) {
             // Second-level approver always has access to all warehouses
             if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
+                return true;
+            }
+            // Third-level approver always has access to all warehouses
+            if (ENABLE_3RD_LEVEL_APPROVAL && currentUser === THIRD_LEVEL_APPROVER_ID) {
                 return true;
             }
             // If warehouse field is empty or not set, user has access to all warehouses
@@ -2722,6 +2758,10 @@
             
             // Second-level approver always has access to all warehouses
             if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
+                return Array.from({length: 28}, (_, i) => `warehouse_${i + 1}`);
+            }
+            // Third-level approver always has access to all warehouses
+            if (ENABLE_3RD_LEVEL_APPROVAL && currentUser === THIRD_LEVEL_APPROVER_ID) {
                 return Array.from({length: 28}, (_, i) => `warehouse_${i + 1}`);
             }
             
@@ -2784,6 +2824,10 @@
             const accessibleWarehouses = getUserAccessibleWarehouses();
             const filterButtons = document.querySelectorAll('#approvals .filter-btn');
             
+            // Second and third level approvers always see all warehouses
+            const hasFullAccess = (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) ||
+                                  (ENABLE_3RD_LEVEL_APPROVAL && currentUser === THIRD_LEVEL_APPROVER_ID);
+            
             filterButtons.forEach(button => {
                 const onclickAttr = button.getAttribute('onclick');
                 if (onclickAttr) {
@@ -2793,10 +2837,10 @@
                         const warehouseValue = match[1];
                         if (warehouseValue === 'all') {
                             // Show 'all' only if user has access to all warehouses
-                            button.style.display = accessibleWarehouses.length === 28 ? '' : 'none';
+                            button.style.display = (accessibleWarehouses.length === 28 || hasFullAccess) ? '' : 'none';
                         } else {
                             // Show button only if warehouse is accessible
-                            button.style.display = accessibleWarehouses.includes(warehouseValue) || accessibleWarehouses.length === 28 ? '' : 'none';
+                            button.style.display = accessibleWarehouses.includes(warehouseValue) || accessibleWarehouses.length === 28 || hasFullAccess ? '' : 'none';
                         }
                     }
                 }
@@ -3484,8 +3528,9 @@
                         ${expense.paymentMode ? `<br>💳 Payment: <strong>${expense.paymentMode}</strong>` : ''}
                         ${expense.invoiceNumber ? `<br>🧾 Invoice: <strong>${expense.invoiceNumber}</strong>` : ''}
                         ${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedBy ? `<br>✅ First Approved by: <strong>${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy}</strong>${expense.firstApprovedAt ? ` on ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}` : ''}
+                        ${ENABLE_3RD_LEVEL_APPROVAL && expense.secondApprovedBy ? `<br>✅ Second Approved by: <strong>${users[expense.secondApprovedBy]?.name || expense.secondApprovedBy}</strong>${expense.secondApprovedAt ? ` on ${new Date(expense.secondApprovedAt).toLocaleString()}` : ''}` : ''}
                         ${expense.approvedBy && expense.status === 'rejected' ? `<br>❌ Rejected by: <strong>${users[expense.approvedBy]?.name || 'Approver'}</strong>${expense.approvedAt ? ` on ${new Date(expense.approvedAt).toLocaleString()}` : ''}${expense.rejectionReason ? `<br>📝 Rejection Reason: <strong>${expense.rejectionReason}</strong>` : ''}` : ''}
-                        ${expense.approvedBy && expense.status !== 'rejected' ? `<br>✅ Final Approved by: <strong>${users[expense.approvedBy]?.name || 'Approver'}</strong>${expense.approvedAt ? ` on ${new Date(expense.approvedAt).toLocaleString()}` : ''}` : ''}
+                        ${expense.approvedBy && expense.status === 'approved' ? `<br>✅ Final Approved by: <strong>${users[expense.approvedBy]?.name || 'Approver'}</strong>${expense.approvedAt ? ` on ${new Date(expense.approvedAt).toLocaleString()}` : ''}` : ''}
                     </div>
                     ${expense.description ? `<div class="expense-description">${expense.description}</div>` : ''}
                     ${expense.invoiceFile ? `
@@ -4617,10 +4662,13 @@
         function displayApprovals() {
             const approvalsList = document.getElementById('approvalsList');
             
-            // Determine which expenses to show based on user role and 2nd level approval
+            // Determine which expenses to show based on user role and approval levels
             let expensesToShow = [];
             
-            if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
+            if (ENABLE_3RD_LEVEL_APPROVAL && currentUser === THIRD_LEVEL_APPROVER_ID) {
+                // 3rd level approver sees expenses that are second_approved
+                expensesToShow = expenses.filter(expense => expense.status === 'second_approved');
+            } else if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
                 // 2nd level approver sees expenses that are first_approved
                 expensesToShow = expenses.filter(expense => expense.status === 'first_approved');
             } else {
@@ -4631,8 +4679,18 @@
             // Get user's accessible warehouses
             const accessibleWarehouses = getUserAccessibleWarehouses();
             
-            // Second-level approver always sees all warehouses - no filtering needed
-            if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
+            // Third-level approver always sees all warehouses - no filtering needed
+            if (ENABLE_3RD_LEVEL_APPROVAL && currentUser === THIRD_LEVEL_APPROVER_ID) {
+                // Only filter by warehouse selector if a specific warehouse is selected
+                if (currentApprovalFilter && currentApprovalFilter !== 'all') {
+                    expensesToShow = expensesToShow.filter(expense => {
+                        const expenseWarehouse = String(expense.warehouse || '').trim();
+                        const filterWarehouse = String(currentApprovalFilter || '').trim();
+                        return expenseWarehouse === filterWarehouse;
+                    });
+                }
+                // If 'all' is selected or no filter, show all warehouses (no additional filtering)
+            } else if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
                 // Only filter by warehouse selector if a specific warehouse is selected
                 if (currentApprovalFilter && currentApprovalFilter !== 'all') {
                     expensesToShow = expensesToShow.filter(expense => {
@@ -4719,9 +4777,14 @@
             // For master users with no warehouse restrictions and 'all' filter, show all pending expenses (no additional filtering)
             
             if (expensesToShow.length === 0) {
-                const message = ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID
-                    ? 'No expenses pending final approval'
-                    : 'No pending approvals';
+                let message = 'No pending approvals';
+                if (ENABLE_3RD_LEVEL_APPROVAL && currentUser === THIRD_LEVEL_APPROVER_ID) {
+                    message = 'No expenses pending final (3rd level) approval';
+                } else if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
+                    message = 'No expenses pending 2nd level approval';
+                } else {
+                    message = 'No pending approvals';
+                }
                 approvalsList.innerHTML = `
                     <div class="empty-state">
                         <div style="font-size: 4rem; margin-bottom: 20px;">✅</div>
@@ -4792,7 +4855,9 @@
                         ${expense.invoiceNumber ? `<br>🧾 Invoice: <strong>${expense.invoiceNumber}</strong>` : ''}
                         <br>👤 Created by: ${users[expense.createdBy]?.name || expense.createdBy}
                         ${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedBy ? `<br>✅ First Approved by: ${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy}${expense.firstApprovedAt ? ` on ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}` : ''}
+                        ${ENABLE_3RD_LEVEL_APPROVAL && expense.secondApprovedBy ? `<br>✅ Second Approved by: ${users[expense.secondApprovedBy]?.name || expense.secondApprovedBy}${expense.secondApprovedAt ? ` on ${new Date(expense.secondApprovedAt).toLocaleString()}` : ''}` : ''}
                         ${expense.approvedBy && expense.status === 'rejected' ? `<br>❌ Rejected by: <strong>${users[expense.approvedBy]?.name || 'Approver'}</strong>${expense.approvedAt ? ` on ${new Date(expense.approvedAt).toLocaleString()}` : ''}${expense.rejectionReason ? `<br>📝 Rejection Reason: <strong style="color: #dc3545;">${expense.rejectionReason}</strong>` : ''}` : ''}
+                        ${expense.approvedBy && expense.status === 'approved' ? `<br>✅ Final Approved by: <strong>${users[expense.approvedBy]?.name || 'Approver'}</strong>${expense.approvedAt ? ` on ${new Date(expense.approvedAt).toLocaleString()}` : ''}` : ''}
                     </div>
                     ${expense.description ? `<div class="expense-description">${expense.description}</div>` : ''}
                     ${expense.invoiceFile ? `
@@ -4813,6 +4878,20 @@
                     ` : ''}
                     ${budgetDisplay}
                     ${ENABLE_2ND_LEVEL_APPROVAL && expense.status === 'first_approved' ? `
+                        <div style="background: #e3f2fd; padding: 10px; border-radius: 6px; margin-top: 10px; border-left: 3px solid #2196f3;">
+                            <strong style="color: #1976d2;">📋 First Level Approved</strong>
+                            ${expense.firstApprovedBy ? ` by ${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy}` : ''}
+                            ${expense.firstApprovedAt ? ` on ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}
+                        </div>
+                    ` : ''}
+                    ${ENABLE_3RD_LEVEL_APPROVAL && expense.status === 'second_approved' ? `
+                        <div style="background: #fff3e0; padding: 10px; border-radius: 6px; margin-top: 10px; border-left: 3px solid #ff9800;">
+                            <strong style="color: #e65100;">📋 Second Level Approved</strong>
+                            ${expense.secondApprovedBy ? ` by ${users[expense.secondApprovedBy]?.name || expense.secondApprovedBy}` : ''}
+                            ${expense.secondApprovedAt ? ` on ${new Date(expense.secondApprovedAt).toLocaleString()}` : ''}
+                        </div>
+                    ` : ''}
+                    ${ENABLE_2ND_LEVEL_APPROVAL && expense.status === 'first_approved' && !ENABLE_3RD_LEVEL_APPROVAL ? `
                         <div style="background: #e3f2fd; padding: 10px; border-radius: 6px; margin-top: 10px; border-left: 3px solid #2196f3;">
                             <strong style="color: #1976d2;">📋 First Level Approved</strong>
                             <div style="font-size: 12px; color: #555; margin-top: 4px;">
@@ -4868,13 +4947,24 @@
                     }
                     
                     // Determine approval level
+                    const isThirdLevelApprover = ENABLE_3RD_LEVEL_APPROVAL && currentUser === THIRD_LEVEL_APPROVER_ID;
                     const isSecondLevelApprover = ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID;
                     const isFirstApproval = expense.status === 'pending';
-                    const isFinalApproval = expense.status === 'first_approved';
+                    const isSecondApproval = expense.status === 'first_approved';
+                    const isFinalApproval = expense.status === 'second_approved';
                     
                     // Create a more informative confirmation message
                     let confirmMessage = '';
-                    if (ENABLE_2ND_LEVEL_APPROVAL && isFinalApproval) {
+                    if (ENABLE_3RD_LEVEL_APPROVAL && isFinalApproval) {
+                        confirmMessage = `Confirm Final (3rd Level) Approval\n\n` +
+                            `Amount: ₹${expense.amount.toFixed(2)}\n` +
+                            `Vendor: ${expense.vendorName || 'N/A'}\n` +
+                            `Category: ${expense.category}\n` +
+                            `Warehouse: ${getWarehouseName(expense.warehouse)}\n` +
+                            `First Approved by: ${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy || 'N/A'}\n` +
+                            `Second Approved by: ${users[expense.secondApprovedBy]?.name || expense.secondApprovedBy || 'N/A'}\n\n` +
+                            `Do you want to give final approval to this expense?`;
+                    } else if (ENABLE_2ND_LEVEL_APPROVAL && isSecondApproval && !ENABLE_3RD_LEVEL_APPROVAL) {
                         confirmMessage = `Confirm Final Approval\n\n` +
                             `Amount: ₹${expense.amount.toFixed(2)}\n` +
                             `Vendor: ${expense.vendorName || 'N/A'}\n` +
@@ -4882,13 +4972,22 @@
                             `Warehouse: ${getWarehouseName(expense.warehouse)}\n` +
                             `First Approved by: ${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy || 'N/A'}\n\n` +
                             `Do you want to give final approval to this expense?`;
+                    } else if (ENABLE_2ND_LEVEL_APPROVAL && isSecondApproval && ENABLE_3RD_LEVEL_APPROVAL) {
+                        confirmMessage = `Confirm Second Level Approval\n\n` +
+                            `Amount: ₹${expense.amount.toFixed(2)}\n` +
+                            `Vendor: ${expense.vendorName || 'N/A'}\n` +
+                            `Category: ${expense.category}\n` +
+                            `Warehouse: ${getWarehouseName(expense.warehouse)}\n` +
+                            `First Approved by: ${users[expense.firstApprovedBy]?.name || expense.firstApprovedBy || 'N/A'}\n\n` +
+                            `This expense will require final approval from ${users[THIRD_LEVEL_APPROVER_ID]?.name || THIRD_LEVEL_APPROVER_ID}.\n\n` +
+                            `Do you want to approve this expense?`;
                     } else if (ENABLE_2ND_LEVEL_APPROVAL && isFirstApproval) {
                         confirmMessage = `Confirm First Level Approval\n\n` +
                             `Amount: ₹${expense.amount.toFixed(2)}\n` +
                             `Vendor: ${expense.vendorName || 'N/A'}\n` +
                             `Category: ${expense.category}\n` +
                             `Warehouse: ${expense.warehouse}\n\n` +
-                            `This expense will require final approval from ${users[SECOND_LEVEL_APPROVER_ID]?.name || SECOND_LEVEL_APPROVER_ID}.\n\n` +
+                            `This expense will require approval from ${users[SECOND_LEVEL_APPROVER_ID]?.name || SECOND_LEVEL_APPROVER_ID}${ENABLE_3RD_LEVEL_APPROVAL ? ` and then ${users[THIRD_LEVEL_APPROVER_ID]?.name || THIRD_LEVEL_APPROVER_ID}` : ''}.\n\n` +
                             `Do you want to approve this expense?`;
                     } else {
                         confirmMessage = `Confirm Approval\n\n` +
@@ -4901,11 +5000,67 @@
                     
             const confirmed = await customConfirm(confirmMessage);
             if (confirmed) {
-                    if (ENABLE_2ND_LEVEL_APPROVAL && isFinalApproval) {
-                        // Final approval - change status to approved
-                    expense.status = 'approved';
-                    expense.approvedBy = currentUser;
-                    expense.approvedAt = new Date().toISOString();
+                    if (ENABLE_3RD_LEVEL_APPROVAL && isFinalApproval) {
+                        // Final (3rd level) approval - change status to approved
+                        expense.status = 'approved';
+                        expense.approvedBy = currentUser;
+                        expense.approvedAt = new Date().toISOString();
+                        await saveExpense(expense);
+                        
+                        // Show success message immediately
+                        showToast('success', 'Success', 'Expense finally approved successfully!');
+                        
+                        // Send email notifications
+                        const approverData = users[currentUser];
+                        if (approverData && approverData.email && emailConfigured) {
+                            sendApprovalEmail(expense, 'approved', approverData.name, approverData.email).catch(err => {
+                                console.error('Email sending failed (non-critical):', err);
+                            });
+                        }
+                        
+                        // Notify expense creator
+                        const creatorData = users[expense.createdBy];
+                        if (creatorData && creatorData.email && emailConfigured) {
+                            sendApprovalEmail(expense, 'approved', creatorData.name, creatorData.email).catch(err => {
+                                console.error('Email sending failed (non-critical):', err);
+                            });
+                        }
+                    } else if (ENABLE_2ND_LEVEL_APPROVAL && isSecondApproval && ENABLE_3RD_LEVEL_APPROVAL) {
+                        // Second level approval - change status to second_approved
+                        expense.status = 'second_approved';
+                        expense.secondApprovedBy = currentUser;
+                        expense.secondApprovedAt = new Date().toISOString();
+                        await saveExpense(expense);
+                        
+                        // Show success message immediately
+                        showToast('success', 'Success', 'Expense second level approved! Waiting for final (3rd level) approval.');
+                        
+                        // Send email notifications
+                        const approverData = users[currentUser];
+                        if (approverData && approverData.email && emailConfigured) {
+                            sendApprovalEmail(expense, 'second_approved', approverData.name, approverData.email).catch(err => {
+                                console.error('Email sending failed (non-critical):', err);
+                            });
+                        }
+                        
+                        // Notify 3rd level approver
+                        const thirdLevelApprover = users[THIRD_LEVEL_APPROVER_ID];
+                        if (thirdLevelApprover && thirdLevelApprover.email && emailConfigured) {
+                            sendExpenseSubmissionEmail(
+                                expense, 
+                                users[expense.createdBy]?.email || '', 
+                                users[expense.createdBy]?.name || expense.createdBy,
+                                thirdLevelApprover.email,
+                                thirdLevelApprover.name
+                            ).catch(err => {
+                                console.error('Error sending notification to 3rd level approver:', err);
+                            });
+                        }
+                    } else if (ENABLE_2ND_LEVEL_APPROVAL && isSecondApproval && !ENABLE_3RD_LEVEL_APPROVAL) {
+                        // Final approval (when 3rd level is disabled) - change status to approved
+                        expense.status = 'approved';
+                        expense.approvedBy = currentUser;
+                        expense.approvedAt = new Date().toISOString();
                         await saveExpense(expense);
                         
                         // Show success message immediately
@@ -4934,7 +5089,8 @@
                         await saveExpense(expense);
                         
                         // Show success message immediately
-                        showToast('success', 'Success', 'Expense first level approved! Waiting for final approval.');
+                        const nextLevel = ENABLE_3RD_LEVEL_APPROVAL ? '2nd and 3rd level' : 'final';
+                        showToast('success', 'Success', `Expense first level approved! Waiting for ${nextLevel} approval.`);
                         
                         // Send email notifications
                         const approverData = users[currentUser];
@@ -5152,13 +5308,15 @@
         }
 
         function convertToCSV(expenses) {
-            const headers = ENABLE_2ND_LEVEL_APPROVAL 
+            const headers = ENABLE_3RD_LEVEL_APPROVAL 
+                ? ['Date', 'Time', 'Category', 'Amount', 'Vendor Name', 'Payment Mode', 'Invoice Number', 'Description', 'Warehouse', 'Created By', 'Status', 'First Approved By', 'First Approved At', 'Second Approved By', 'Second Approved At', 'Final Approved By', 'Final Approved At', 'Rejection Reason']
+                : ENABLE_2ND_LEVEL_APPROVAL 
                 ? ['Date', 'Time', 'Category', 'Amount', 'Vendor Name', 'Payment Mode', 'Invoice Number', 'Description', 'Warehouse', 'Created By', 'Status', 'First Approved By', 'First Approved At', 'Final Approved By', 'Final Approved At', 'Rejection Reason']
                 : ['Date', 'Time', 'Category', 'Amount', 'Vendor Name', 'Payment Mode', 'Invoice Number', 'Description', 'Warehouse', 'Created By', 'Status', 'Approved By', 'Approved At', 'Rejection Reason'];
             const csvContent = [
                 headers.join(','),
                 ...expenses.map(expense => {
-                    if (ENABLE_2ND_LEVEL_APPROVAL) {
+                    if (ENABLE_3RD_LEVEL_APPROVAL) {
                         return [
                     expense.date,
                     expense.time,
@@ -5227,8 +5385,12 @@ Created By: ${users[expense.createdBy]?.name || expense.createdBy}
 Status: ${expense.status || 'pending'}
 ${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedBy ? `First Approved By: ${users[expense.firstApprovedBy]?.name || 'First Approver'}` : ''}
 ${ENABLE_2ND_LEVEL_APPROVAL && expense.firstApprovedAt ? `First Approved At: ${new Date(expense.firstApprovedAt).toLocaleString()}` : ''}
+${ENABLE_3RD_LEVEL_APPROVAL && expense.secondApprovedBy ? `Second Approved By: ${users[expense.secondApprovedBy]?.name || 'Second Approver'}` : ''}
+${ENABLE_3RD_LEVEL_APPROVAL && expense.secondApprovedAt ? `Second Approved At: ${new Date(expense.secondApprovedAt).toLocaleString()}` : ''}
 ${expense.approvedBy && expense.status === 'rejected' ? `Rejected By: ${users[expense.approvedBy]?.name || 'Approver'}` : ''}
 ${expense.approvedAt && expense.status === 'rejected' ? `Rejected At: ${new Date(expense.approvedAt).toLocaleString()}` : ''}
+${expense.approvedBy && expense.status === 'approved' ? `Final Approved By: ${users[expense.approvedBy]?.name || 'Approver'}` : ''}
+${expense.approvedAt && expense.status === 'approved' ? `Final Approved At: ${new Date(expense.approvedAt).toLocaleString()}` : ''}
 ${expense.rejectionReason && expense.status === 'rejected' ? `Rejection Reason: ${expense.rejectionReason}` : ''}
 ${expense.approvedBy && expense.status !== 'rejected' ? `Final Approved By: ${users[expense.approvedBy]?.name || 'Approver'}` : ''}
 ${expense.approvedAt && expense.status !== 'rejected' ? `Final Approved At: ${new Date(expense.approvedAt).toLocaleString()}` : ''}
