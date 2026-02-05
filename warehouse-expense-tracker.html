@@ -1568,6 +1568,7 @@
                                 📤 Import Users (JSON)
                             </label>
                             <input type="file" id="userFileInput" accept=".json" style="display: none;" onchange="importUsersFromFile(event)">
+                            <button class="btn" onclick="attemptUserRecovery()" style="background: #9c27b0; color: white;">🔍 Try Recover Deleted Users</button>
                         </div>
                     </div>
                     <div class="user-list" id="userList">
@@ -4344,6 +4345,149 @@
                 }
             };
             reader.readAsText(file);
+        }
+        
+        // Attempt to recover deleted users from various sources
+        async function attemptUserRecovery() {
+            let recoveredCount = 0;
+            const recoveredUsers = {};
+            const recoverySources = [];
+            
+            // 1. Check Firebase (if configured)
+            if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE" && db) {
+                try {
+                    const snapshot = await db.collection('users').get();
+                    snapshot.forEach(doc => {
+                        const userData = doc.data();
+                        if (doc.id !== 'admin' && !doc.id.startsWith('warehouse_')) {
+                            recoveredUsers[doc.id] = userData;
+                            recoverySources.push(`Firebase: ${doc.id}`);
+                        }
+                    });
+                    if (Object.keys(recoveredUsers).length > 0) {
+                        recoverySources.push(`Found ${Object.keys(recoveredUsers).length} user(s) in Firebase`);
+                    }
+                } catch (error) {
+                    console.error('Firebase recovery error:', error);
+                }
+            }
+            
+            // 2. Check all localStorage keys for user data
+            try {
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (key.toLowerCase().includes('user') || key.toLowerCase().includes('warehouse'))) {
+                        try {
+                            const data = JSON.parse(localStorage.getItem(key));
+                            if (data && typeof data === 'object') {
+                                Object.keys(data).forEach(username => {
+                                    if (username !== 'admin' && !username.startsWith('warehouse_') && data[username] && data[username].password) {
+                                        if (!recoveredUsers[username]) {
+                                            recoveredUsers[username] = data[username];
+                                            recoverySources.push(`localStorage (${key}): ${username}`);
+                                        }
+                                    }
+                                });
+                            }
+                        } catch (e) {
+                            // Not JSON, skip
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('localStorage recovery error:', error);
+            }
+            
+            // 3. Check sessionStorage (sometimes used as backup)
+            try {
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const key = sessionStorage.key(i);
+                    if (key && key.toLowerCase().includes('user')) {
+                        try {
+                            const data = JSON.parse(sessionStorage.getItem(key));
+                            if (data && typeof data === 'object') {
+                                Object.keys(data).forEach(username => {
+                                    if (username !== 'admin' && !username.startsWith('warehouse_') && data[username] && data[username].password) {
+                                        if (!recoveredUsers[username]) {
+                                            recoveredUsers[username] = data[username];
+                                            recoverySources.push(`sessionStorage (${key}): ${username}`);
+                                        }
+                                    }
+                                });
+                            }
+                        } catch (e) {
+                            // Not JSON, skip
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('sessionStorage recovery error:', error);
+            }
+            
+            // Remove admin from recovered users
+            delete recoveredUsers['admin'];
+            
+            recoveredCount = Object.keys(recoveredUsers).length;
+            
+            if (recoveredCount === 0) {
+                await customAlert(
+                    '❌ No recoverable users found.\n\n' +
+                    'Possible reasons:\n' +
+                    '• Users were never saved\n' +
+                    '• Browser storage was cleared\n' +
+                    '• Firebase is not configured\n\n' +
+                    'Please recreate users manually or import from a backup file.'
+                );
+                return;
+            }
+            
+            // Show recovery results
+            const recoveryDetails = recoverySources.length > 0 
+                ? '\n\nRecovery sources:\n' + recoverySources.slice(0, 10).join('\n') + (recoverySources.length > 10 ? '\n... and more' : '')
+                : '';
+            
+            const confirmed = await customConfirm(
+                `Found ${recoveredCount} recoverable user(s)!\n\n` +
+                `Do you want to restore these users?\n\n` +
+                `Note: Existing users with the same Employee Code will be overwritten.` +
+                recoveryDetails
+            );
+            
+            if (!confirmed) {
+                return;
+            }
+            
+            // Restore recovered users
+            let restoredCount = 0;
+            let skippedCount = 0;
+            
+            for (const [username, userData] of Object.entries(recoveredUsers)) {
+                try {
+                    // Validate user data
+                    if (!userData.password || !userData.role || !userData.name) {
+                        console.warn(`Skipping invalid recovered user: ${username}`, userData);
+                        skippedCount++;
+                        continue;
+                    }
+                    
+                    await saveUser(username, userData);
+                    restoredCount++;
+                } catch (error) {
+                    console.error(`Error restoring user ${username}:`, error);
+                    skippedCount++;
+                }
+            }
+            
+            // Reload users
+            users = await getUsers();
+            loadUsers();
+            
+            await customAlert(
+                `✅ Recovery completed!\n\n` +
+                `• Restored: ${restoredCount} user(s)\n` +
+                `• Skipped: ${skippedCount} user(s)\n\n` +
+                `Please verify the restored users in the user list.`
+            );
         }
 
         // Approval functions
