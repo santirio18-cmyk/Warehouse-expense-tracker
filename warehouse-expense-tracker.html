@@ -1109,7 +1109,7 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="expenseDate">Date</label>
-                            <input type="date" id="expenseDate" required>
+                            <input type="date" id="expenseDate" required max="">
                         </div>
                         <div class="form-group">
                             <label for="expenseTime">Time</label>
@@ -2862,7 +2862,9 @@
         }
 
         // Initialize
-        document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('expenseDate').value = today;
+        document.getElementById('expenseDate').setAttribute('max', today); // Prevent future dates
         document.getElementById('expenseTime').value = new Date().toTimeString().slice(0, 5);
         document.getElementById('budgetMonth').value = new Date().toISOString().slice(0, 7);
         
@@ -3251,14 +3253,14 @@
                 return;
             }
             
-            // Date validation - cannot be more than 30 days in the future
+            // Date validation - cannot be in the future (only today and past dates allowed)
             const today = new Date();
-            const maxDate = new Date(today);
-            maxDate.setDate(today.getDate() + 30);
+            today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
             const submittedDate = new Date(expenseDate);
+            submittedDate.setHours(0, 0, 0, 0);
             
-            if (submittedDate > maxDate) {
-                showToast('error', 'Date Error', 'Expense date cannot be more than 30 days in the future.');
+            if (submittedDate > today) {
+                showToast('error', 'Date Error', 'Expense date cannot be in the future. Only today and past dates are allowed.');
                 return;
             }
             
@@ -3374,7 +3376,9 @@
                 
                 // Reset form immediately
                 document.getElementById('expenseForm').reset();
-                document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
+                const todayDate = new Date().toISOString().split('T')[0];
+                document.getElementById('expenseDate').value = todayDate;
+                document.getElementById('expenseDate').setAttribute('max', todayDate); // Ensure max date is set
                 document.getElementById('expenseTime').value = new Date().toTimeString().slice(0, 5);
                 
                 // Update UI immediately
