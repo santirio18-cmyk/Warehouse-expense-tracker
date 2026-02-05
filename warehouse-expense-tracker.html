@@ -1848,6 +1848,18 @@
                     });
                 }
             }
+            // Add 3rd level approver if enabled
+            if (ENABLE_3RD_LEVEL_APPROVAL && users[THIRD_LEVEL_APPROVER_ID] && users[THIRD_LEVEL_APPROVER_ID].email) {
+                const thirdLevelApprover = users[THIRD_LEVEL_APPROVER_ID];
+                if (!approvers.find(a => a.username === THIRD_LEVEL_APPROVER_ID)) {
+                    approvers.push({
+                        username: THIRD_LEVEL_APPROVER_ID,
+                        name: thirdLevelApprover.name,
+                        email: thirdLevelApprover.email,
+                        role: 'approver'
+                    });
+                }
+            }
             
             return approvers;
         }
@@ -4901,8 +4913,11 @@
                         </div>
                     ` : ''}
                     <div class="approval-actions">
-                        ${ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID && expense.status === 'first_approved' ? `
+                        ${ENABLE_3RD_LEVEL_APPROVAL && currentUser === THIRD_LEVEL_APPROVER_ID && expense.status === 'second_approved' ? `
                             <button class="approval-btn approve-btn" onclick="approveExpense('${expense.id}')">✅ Final Approve</button>
+                            <button class="approval-btn reject-btn" onclick="rejectExpense('${expense.id}')">❌ Reject</button>
+                        ` : ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID && expense.status === 'first_approved' ? `
+                            <button class="approval-btn approve-btn" onclick="approveExpense('${expense.id}')">✅ Second Approve</button>
                             <button class="approval-btn reject-btn" onclick="rejectExpense('${expense.id}')">❌ Reject</button>
                         ` : ENABLE_2ND_LEVEL_APPROVAL && expense.status === 'pending' ? `
                             <button class="approval-btn approve-btn" onclick="approveExpense('${expense.id}')">✅ First Approve</button>
