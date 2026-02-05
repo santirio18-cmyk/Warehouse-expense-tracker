@@ -4131,10 +4131,21 @@
         
         // Budget Excel Upload Functions
         async function downloadBudgetTemplate() {
-            const categories = ['Pooja', 'Tea', 'Petrol', 'Lunch', 'Travel', 'Freight', 'Maintenance', 'Utilities', 'Supplies', 'Other'];
+            // Get all categories from the expense category dropdown to ensure they match
+            const categorySelect = document.getElementById('expenseCategory');
+            const categories = Array.from(categorySelect.options).map(option => option.value);
+            
+            // If categories dropdown not found, use default list
+            const defaultCategories = categories.length > 0 ? categories : [
+                'Pooja', 'Tea', 'Water', 'Petrol', 'Lunch', 'Travel', 'Freight', 
+                'Maintenance', 'Utilities', 'Supplies', 'Staff Transportation', 
+                'Staff Welfare', 'Electricity', 'Stationary', 'MHE Rental', 
+                'Packing Material', 'Internet / Broadband', 'Diesel Generator', 'AMC', 'Other'
+            ];
+            
             const csvContent = [
                 'Category,Budget',
-                ...categories.map(cat => `${cat},0`)
+                ...defaultCategories.map(cat => `${cat},0`)
             ].join('\n');
             
             const blob = new Blob([csvContent], { type: 'text/csv' });
