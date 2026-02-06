@@ -5540,8 +5540,21 @@
         // Download functions
         function downloadCSV() {
             let filteredExpenses = getFilteredExpenses();
+            
+            // Debug: Log what's being filtered
+            console.log('Total expenses:', expenses.length);
+            console.log('Filtered expenses:', filteredExpenses.length);
+            console.log('Current user:', currentUser);
+            console.log('Current warehouse:', currentWarehouse);
+            
+            if (filteredExpenses.length === 0) {
+                showToast('warning', 'No Data', 'No expenses found matching the current filters. Try changing warehouse selector or date filters.');
+                return;
+            }
+            
             const csv = convertToCSV(filteredExpenses);
             downloadFile(csv, 'expenses.csv', 'text/csv');
+            showToast('success', 'Download Started', `Downloading ${filteredExpenses.length} expense(s) as CSV...`);
         }
 
         function downloadJSON() {
@@ -5636,54 +5649,88 @@
         }
 
         function convertToCSV(expenses) {
+            // Handle empty expenses array
+            if (!expenses || expenses.length === 0) {
+                console.warn('No expenses to convert to CSV');
+                return 'Date,Time,Category,Amount,Vendor Name,Payment Mode,Invoice Number,Description,Warehouse,Created By,Status\nNo data available';
+            }
+            
             const headers = ENABLE_3RD_LEVEL_APPROVAL 
                 ? ['Date', 'Time', 'Category', 'Amount', 'Vendor Name', 'Payment Mode', 'Invoice Number', 'Description', 'Warehouse', 'Created By', 'Status', 'First Approved By', 'First Approved At', 'Second Approved By', 'Second Approved At', 'Final Approved By', 'Final Approved At', 'Rejection Reason']
                 : ENABLE_2ND_LEVEL_APPROVAL 
                 ? ['Date', 'Time', 'Category', 'Amount', 'Vendor Name', 'Payment Mode', 'Invoice Number', 'Description', 'Warehouse', 'Created By', 'Status', 'First Approved By', 'First Approved At', 'Final Approved By', 'Final Approved At', 'Rejection Reason']
                 : ['Date', 'Time', 'Category', 'Amount', 'Vendor Name', 'Payment Mode', 'Invoice Number', 'Description', 'Warehouse', 'Created By', 'Status', 'Approved By', 'Approved At', 'Rejection Reason'];
-            const csvContent = [
-                headers.join(','),
-                ...expenses.map(expense => {
+            
+            const csvRows = [headers.join(',')];
+            
+            expenses.forEach(expense => {
+                try {
+                    let row;
                     if (ENABLE_3RD_LEVEL_APPROVAL) {
-                        return [
-                    expense.date,
-                    expense.time,
-                    expense.category,
-                    expense.amount,
-                    expense.vendorName || '',
-                    expense.paymentMode || '',
-                    expense.invoiceNumber || '',
-                    `"${expense.description || ''}"`,
-                    getWarehouseName(expense.warehouse),
-                            users[expense.createdBy]?.name || expense.createdBy,
-                    expense.status || 'pending',
-                            expense.firstApprovedBy ? (users[expense.firstApprovedBy]?.name || 'First Approver') : '',
-                            expense.firstApprovedAt || '',
-                            expense.approvedBy && expense.status === 'rejected' ? (users[expense.approvedBy]?.name || 'Approver') : (expense.approvedBy && expense.status !== 'rejected' ? (users[expense.approvedBy]?.name || 'Approver') : ''),
-                    expense.approvedAt && expense.status === 'rejected' ? expense.approvedAt : (expense.approvedAt && expense.status !== 'rejected' ? expense.approvedAt : ''),
-                    expense.status === 'rejected' ? `"${expense.rejectionReason || ''}"` : ''
-                        ].join(',');
-                    } else {
-                        return [
-                            expense.date,
-                            expense.time,
-                            expense.category,
-                            expense.amount,
+                        row = [
+                            expense.date || '',
+                            expense.time || '',
+                            expense.category || '',
+                            expense.amount || 0,
                             expense.vendorName || '',
                             expense.paymentMode || '',
                             expense.invoiceNumber || '',
-                            `"${expense.description || ''}"`,
-                            getWarehouseName(expense.warehouse),
-                            users[expense.createdBy]?.name || expense.createdBy,
+                            `"${(expense.description || '').replace(/"/g, '""')}"`,
+                            getWarehouseName(expense.warehouse) || expense.warehouse || '',
+                            users[expense.createdBy]?.name || expense.createdBy || '',
                             expense.status || 'pending',
-                            expense.approvedBy && expense.status === 'rejected' ? (users[expense.approvedBy]?.name || 'Approver') : (expense.approvedBy && expense.status !== 'rejected' ? (users[expense.approvedBy]?.name || 'Approver') : ''),
-                            expense.approvedAt && expense.status === 'rejected' ? expense.approvedAt : (expense.approvedAt && expense.status !== 'rejected' ? expense.approvedAt : ''),
-                            expense.status === 'rejected' ? `"${expense.rejectionReason || ''}"` : ''
+                            expense.firstApprovedBy ? (users[expense.firstApprovedBy]?.name || expense.firstApprovedBy) : '',
+                            expense.firstApprovedAt || '',
+                            expense.secondApprovedBy ? (users[expense.secondApprovedBy]?.name || expense.secondApprovedBy) : '',
+                            expense.secondApprovedAt || '',
+                            expense.approvedBy && expense.status === 'approved' ? (users[expense.approvedBy]?.name || expense.approvedBy) : '',
+                            expense.approvedAt && expense.status === 'approved' ? expense.approvedAt : '',
+                            expense.status === 'rejected' ? `"${(expense.rejectionReason || '').replace(/"/g, '""')}"` : ''
+                        ].join(',');
+                    } else if (ENABLE_2ND_LEVEL_APPROVAL) {
+                        row = [
+                            expense.date || '',
+                            expense.time || '',
+                            expense.category || '',
+                            expense.amount || 0,
+                            expense.vendorName || '',
+                            expense.paymentMode || '',
+                            expense.invoiceNumber || '',
+                            `"${(expense.description || '').replace(/"/g, '""')}"`,
+                            getWarehouseName(expense.warehouse) || expense.warehouse || '',
+                            users[expense.createdBy]?.name || expense.createdBy || '',
+                            expense.status || 'pending',
+                            expense.firstApprovedBy ? (users[expense.firstApprovedBy]?.name || expense.firstApprovedBy) : '',
+                            expense.firstApprovedAt || '',
+                            expense.approvedBy && expense.status === 'approved' ? (users[expense.approvedBy]?.name || expense.approvedBy) : '',
+                            expense.approvedAt && expense.status === 'approved' ? expense.approvedAt : '',
+                            expense.status === 'rejected' ? `"${(expense.rejectionReason || '').replace(/"/g, '""')}"` : ''
+                        ].join(',');
+                    } else {
+                        row = [
+                            expense.date || '',
+                            expense.time || '',
+                            expense.category || '',
+                            expense.amount || 0,
+                            expense.vendorName || '',
+                            expense.paymentMode || '',
+                            expense.invoiceNumber || '',
+                            `"${(expense.description || '').replace(/"/g, '""')}"`,
+                            getWarehouseName(expense.warehouse) || expense.warehouse || '',
+                            users[expense.createdBy]?.name || expense.createdBy || '',
+                            expense.status || 'pending',
+                            expense.approvedBy ? (users[expense.approvedBy]?.name || expense.approvedBy) : '',
+                            expense.approvedAt || '',
+                            expense.status === 'rejected' ? `"${(expense.rejectionReason || '').replace(/"/g, '""')}"` : ''
                         ].join(',');
                     }
-                })
-            ].join('\n');
-            return csvContent;
+                    csvRows.push(row);
+                } catch (error) {
+                    console.error('Error converting expense to CSV row:', error, expense);
+                }
+            });
+            
+            return csvRows.join('\n');
         }
 
         function generatePDFContent(expenses) {
