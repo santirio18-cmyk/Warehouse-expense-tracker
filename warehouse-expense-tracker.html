@@ -5538,7 +5538,13 @@
         }
 
         // Download functions
-        function downloadCSV() {
+        async function downloadCSV() {
+            // Ensure expenses are loaded before downloading
+            if (!expenses || expenses.length === 0) {
+                console.log('Expenses array is empty, reloading...');
+                expenses = await getExpenses();
+            }
+            
             let filteredExpenses = getFilteredExpenses();
             
             // Debug: Log what's being filtered
@@ -5570,10 +5576,29 @@
         }
 
         function getFilteredExpenses() {
-            let filteredExpenses = expenses;
+            // Start with all expenses - ensure it's an array
+            let filteredExpenses = expenses || [];
+            
+            // Debug logging
+            console.log('getFilteredExpenses - Total expenses:', filteredExpenses.length);
+            console.log('getFilteredExpenses - Current user:', currentUser);
+            console.log('getFilteredExpenses - Current warehouse:', currentWarehouse);
+            
+            // If no expenses, return empty array
+            if (filteredExpenses.length === 0) {
+                console.warn('No expenses found in expenses array');
+                return [];
+            }
+            
+            // Ensure currentUser exists
+            if (!currentUser || !users[currentUser]) {
+                console.error('Invalid currentUser:', currentUser);
+                return [];
+            }
             
             // Get user's accessible warehouses
             const accessibleWarehouses = getUserAccessibleWarehouses();
+            console.log('getFilteredExpenses - Accessible warehouses:', accessibleWarehouses.length);
             
             // Filter by warehouse - Respect user's warehouse access restrictions
             if (users[currentUser].role === 'warehouse') {
@@ -5619,32 +5644,44 @@
                             accessibleWarehouses.includes(expense.warehouse)
                         );
                     }
-            } else if (currentWarehouse && currentWarehouse !== 'all') {
-                    // Master with no restrictions: filter by selected warehouse - use strict string comparison
-                    filteredExpenses = filteredExpenses.filter(expense => {
-                        const expenseWarehouse = String(expense.warehouse || '').trim();
-                        const filterWarehouse = String(currentWarehouse || '').trim();
-                        return expenseWarehouse === filterWarehouse;
-                    });
+                } else {
+                    // Master with no restrictions: filter by selected warehouse if specified
+                    if (currentWarehouse && currentWarehouse !== 'all') {
+                        filteredExpenses = filteredExpenses.filter(expense => {
+                            const expenseWarehouse = String(expense.warehouse || '').trim();
+                            const filterWarehouse = String(currentWarehouse || '').trim();
+                            return expenseWarehouse === filterWarehouse;
+                        });
+                    }
+                    // If master has no restrictions and no filter, show all expenses (no additional filtering)
                 }
-                // If master has no restrictions and no filter, show all expenses
             }
             
-            // Apply date filters
-            const fromDate = document.getElementById('downloadFromDate').value;
-            const toDate = document.getElementById('downloadToDate').value;
-            const category = document.getElementById('downloadCategory').value;
+            console.log('getFilteredExpenses - After warehouse filtering:', filteredExpenses.length);
+            
+            // Apply date and category filters from download section
+            const fromDateEl = document.getElementById('downloadFromDate');
+            const toDateEl = document.getElementById('downloadToDate');
+            const categoryEl = document.getElementById('downloadCategory');
+            
+            const fromDate = fromDateEl ? fromDateEl.value : '';
+            const toDate = toDateEl ? toDateEl.value : '';
+            const category = categoryEl ? categoryEl.value : '';
             
             if (fromDate) {
                 filteredExpenses = filteredExpenses.filter(expense => expense.date >= fromDate);
+                console.log('getFilteredExpenses - After fromDate filter:', filteredExpenses.length);
             }
             if (toDate) {
                 filteredExpenses = filteredExpenses.filter(expense => expense.date <= toDate);
+                console.log('getFilteredExpenses - After toDate filter:', filteredExpenses.length);
             }
             if (category) {
                 filteredExpenses = filteredExpenses.filter(expense => expense.category === category);
+                console.log('getFilteredExpenses - After category filter:', filteredExpenses.length);
             }
             
+            console.log('getFilteredExpenses - Final count:', filteredExpenses.length);
             return filteredExpenses;
         }
 
