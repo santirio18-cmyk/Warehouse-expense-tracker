@@ -3058,21 +3058,32 @@
                     filterWarehouseOptions('warehouseSelect');
                     filterWarehouseOptions('budgetWarehouse');
                     filterApprovalFilterButtons();
-                    // Set warehouse selector to first accessible warehouse
-                    const accessibleWarehouses = getUserAccessibleWarehouses();
-                    if (accessibleWarehouses.length > 0) {
-                        document.getElementById('warehouseSelect').value = accessibleWarehouses[0];
-                        currentWarehouse = accessibleWarehouses[0];
-                } else {
-                        // Fallback if no warehouses assigned
-                        document.getElementById('warehouseSelect').value = 'warehouse_1';
-                        currentWarehouse = 'warehouse_1';
-                    }
-                    // Remove 'all' option if it exists
-                    const warehouseSelect = document.getElementById('warehouseSelect');
-                    const allOption = warehouseSelect.querySelector('option[value="all"]');
-                    if (allOption) {
-                        allOption.remove();
+                    
+                    // For 2nd level approver (K02815), set approval filter to 'all' to show all warehouses
+                    if (ENABLE_2ND_LEVEL_APPROVAL && username === SECOND_LEVEL_APPROVER_ID) {
+                        currentApprovalFilter = 'all';
+                        currentWarehouse = 'all';
+                        const warehouseSelect = document.getElementById('warehouseSelect');
+                        if (warehouseSelect) {
+                            warehouseSelect.value = 'all';
+                        }
+                    } else {
+                        // For other approvers, set warehouse selector to first accessible warehouse
+                        const accessibleWarehouses = getUserAccessibleWarehouses();
+                        if (accessibleWarehouses.length > 0) {
+                            document.getElementById('warehouseSelect').value = accessibleWarehouses[0];
+                            currentWarehouse = accessibleWarehouses[0];
+                        } else {
+                            // Fallback if no warehouses assigned
+                            document.getElementById('warehouseSelect').value = 'warehouse_1';
+                            currentWarehouse = 'warehouse_1';
+                        }
+                        // Remove 'all' option if it exists (for non-2nd-level approvers)
+                        const warehouseSelect = document.getElementById('warehouseSelect');
+                        const allOption = warehouseSelect.querySelector('option[value="all"]');
+                        if (allOption) {
+                            allOption.remove();
+                        }
                     }
                 } else {
                     // Warehouse: Entry only
@@ -5012,8 +5023,9 @@
                 }
                 // If 'all' is selected or no filter, show all warehouses (no additional filtering)
             } else if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
-                // Only filter by warehouse selector if a specific warehouse is selected
-                if (currentApprovalFilter && currentApprovalFilter !== 'all') {
+                // 2nd level approver sees ALL first_approved expenses from ALL warehouses
+                // Only filter by warehouse selector if a specific warehouse filter button is clicked
+                if (currentApprovalFilter && currentApprovalFilter !== 'all' && currentApprovalFilter.startsWith('warehouse_')) {
                     expensesToShow = expensesToShow.filter(expense => {
                         const expenseWarehouse = String(expense.warehouse || '').trim();
                         const filterWarehouse = String(currentApprovalFilter || '').trim();
@@ -5021,6 +5033,7 @@
                     });
                 }
                 // If 'all' is selected or no filter, show all warehouses (no additional filtering)
+                // Note: currentWarehouse selector should NOT filter approvals for 2nd level approver
             } else if (users[currentUser].role === 'approver' && users[currentUser].warehouse && users[currentUser].warehouse !== '') {
                 // Approver with warehouse mapping: filter by approval filter or warehouse selector first
                 if (currentApprovalFilter && currentApprovalFilter !== 'all') {
