@@ -2847,6 +2847,16 @@
             // Remove all options first
             selectElement.innerHTML = '';
             
+            // For 2nd/3rd level approvers and users with all warehouses: add 'All' option as first choice
+            const hasFullAccess = accessibleWarehouses.length === 28 ||
+                (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) ||
+                (ENABLE_3RD_LEVEL_APPROVAL && currentUser === THIRD_LEVEL_APPROVER_ID);
+            if (hasFullAccess && selectElementId === 'warehouseSelect') {
+                const allOption = document.createElement('option');
+                allOption.value = 'all';
+                allOption.textContent = 'All Warehouses';
+                selectElement.appendChild(allOption);
+            }
             // Add only accessible warehouses
             allOptionsData.forEach(optionData => {
                 const warehouseValue = optionData.value;
@@ -3142,15 +3152,17 @@
         function switchWarehouse() {
             const warehouseSelect = document.getElementById('warehouseSelect');
             currentWarehouse = String(warehouseSelect.value || '').trim();
-            // Safety check: if somehow 'all' is selected, reset to first accessible warehouse
-            if (currentWarehouse === 'all' || !currentWarehouse) {
+            // For 2nd/3rd level approvers: keep 'all' - don't reset to first warehouse
+            const isFullAccessApprover = (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) ||
+                (ENABLE_3RD_LEVEL_APPROVAL && currentUser === THIRD_LEVEL_APPROVER_ID);
+            if ((currentWarehouse === 'all' || !currentWarehouse) && !isFullAccessApprover) {
                 const accessibleWarehouses = getUserAccessibleWarehouses();
                 currentWarehouse = accessibleWarehouses.length > 0 ? accessibleWarehouses[0] : 'warehouse_1';
                 warehouseSelect.value = currentWarehouse;
             }
-            // For master/admin: warehouse selector is for Expense List/Summary only - don't change approval filter
-            // For approvers: sync approval filter with warehouse selector
-            if (users[currentUser]?.role !== 'master') {
+            // For master/admin and 2nd/3rd level approvers: warehouse selector doesn't change approval filter
+            // For other approvers: sync approval filter with warehouse selector
+            if (users[currentUser]?.role !== 'master' && !isFullAccessApprover) {
                 currentApprovalFilter = currentWarehouse;
             }
             // Update active state of approval filter buttons
@@ -3197,9 +3209,11 @@
                 requestAnimationFrame(() => loadUsers());
             }
             if (tabName === 'approvals') {
-                // For master/admin: Always default to 'All Pending' so Hubli, Patna, etc. all show
-                // Don't sync approval filter from warehouse selector - they're independent
-                if (users[currentUser]?.role === 'master') {
+                // For master/admin AND 2nd/3rd level approvers: Always default to 'All Pending' so Hubli, Patna, etc. all show
+                const hasFullApprovalAccess = users[currentUser]?.role === 'master' ||
+                    (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) ||
+                    (ENABLE_3RD_LEVEL_APPROVAL && currentUser === THIRD_LEVEL_APPROVER_ID);
+                if (hasFullApprovalAccess) {
                     currentApprovalFilter = 'all';
                     document.querySelectorAll('#approvals .filter-btn').forEach(btn => {
                         btn.classList.remove('active');
@@ -3209,7 +3223,7 @@
                         }
                     });
                 } else if (currentWarehouse && currentWarehouse !== 'all' && (!currentApprovalFilter || currentApprovalFilter === 'all')) {
-                    // For approvers: sync approval filter with warehouse selector
+                    // For other approvers: sync approval filter with warehouse selector
                     currentApprovalFilter = currentWarehouse;
                     document.querySelectorAll('#approvals .filter-btn').forEach(btn => {
                         btn.classList.remove('active');
