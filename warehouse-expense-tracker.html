@@ -5002,7 +5002,10 @@
                 expensesToShow = expenses.filter(expense => expense.status === 'second_approved');
             } else if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
                 // 2nd level approver sees expenses that are first_approved
-                expensesToShow = expenses.filter(expense => expense.status === 'first_approved');
+                const allFirstApproved = expenses.filter(expense => expense.status === 'first_approved');
+                console.log(`[2nd Level Approver] Total expenses: ${expenses.length}, First approved: ${allFirstApproved.length}`);
+                console.log(`[2nd Level Approver] Current approval filter: ${currentApprovalFilter}, Current warehouse: ${currentWarehouse}`);
+                expensesToShow = allFirstApproved;
             } else {
                 // First level approvers see expenses that are pending (or have no status, which defaults to pending)
                 expensesToShow = expenses.filter(expense => expense.status === 'pending' || !expense.status || expense.status === '');
