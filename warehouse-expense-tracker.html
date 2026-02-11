@@ -3049,6 +3049,8 @@
                         warehouseSelect.value = accessibleWarehouses[0];
                         currentWarehouse = accessibleWarehouses[0];
                     }
+                    // Master/admin: Approvals tab should show ALL pending by default (all warehouses)
+                    currentApprovalFilter = 'all';
                 } else if (users[username].role === 'approver') {
                     // Approver: All access except user creation
                     document.getElementById('warehouseSelector').style.display = 'block';
@@ -3146,8 +3148,11 @@
                 currentWarehouse = accessibleWarehouses.length > 0 ? accessibleWarehouses[0] : 'warehouse_1';
                 warehouseSelect.value = currentWarehouse;
             }
-            // Also update approval filter to match the warehouse selector
-            currentApprovalFilter = currentWarehouse;
+            // For master/admin: warehouse selector is for Expense List/Summary only - don't change approval filter
+            // For approvers: sync approval filter with warehouse selector
+            if (users[currentUser]?.role !== 'master') {
+                currentApprovalFilter = currentWarehouse;
+            }
             // Update active state of approval filter buttons
             document.querySelectorAll('#approvals .filter-btn').forEach(btn => {
                 btn.classList.remove('active');
@@ -3192,10 +3197,20 @@
                 requestAnimationFrame(() => loadUsers());
             }
             if (tabName === 'approvals') {
-                // Sync approval filter with warehouse selector when switching to approvals tab
-                if (currentWarehouse && currentWarehouse !== 'all' && (!currentApprovalFilter || currentApprovalFilter === 'all')) {
+                // For master/admin: Always default to 'All Pending' so Hubli, Patna, etc. all show
+                // Don't sync approval filter from warehouse selector - they're independent
+                if (users[currentUser]?.role === 'master') {
+                    currentApprovalFilter = 'all';
+                    document.querySelectorAll('#approvals .filter-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                        const onclickAttr = btn.getAttribute('onclick');
+                        if (onclickAttr && onclickAttr.includes("filterApprovals('all')")) {
+                            btn.classList.add('active');
+                        }
+                    });
+                } else if (currentWarehouse && currentWarehouse !== 'all' && (!currentApprovalFilter || currentApprovalFilter === 'all')) {
+                    // For approvers: sync approval filter with warehouse selector
                     currentApprovalFilter = currentWarehouse;
-                    // Update active state of approval filter buttons
                     document.querySelectorAll('#approvals .filter-btn').forEach(btn => {
                         btn.classList.remove('active');
                         const onclickAttr = btn.getAttribute('onclick');
@@ -5115,10 +5130,9 @@
                 }
             } else if (currentWarehouse && currentWarehouse !== 'all') {
                 // If no approval filter is set but warehouse selector is set, use warehouse selector
-                // BUT: For master/admin users, don't filter by warehouse selector in approvals tab unless explicitly filtered
-                if (users[currentUser].role === 'master' && !currentApprovalFilter) {
-                    // Master users should see all pending expenses regardless of warehouse selector
-                    // Only filter if approval filter button is clicked
+                // BUT: For master/admin users with 'All Pending' selected, show ALL expenses (Hubli, Patna, etc.)
+                if (users[currentUser].role === 'master' && (currentApprovalFilter === 'all' || !currentApprovalFilter)) {
+                    // Master with 'All Pending': show all pending expenses from all warehouses
                 } else {
                     expensesToShow = expensesToShow.filter(expense => {
                         const expenseWarehouse = String(expense.warehouse || '').trim();
