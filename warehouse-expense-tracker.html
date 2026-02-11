@@ -5710,13 +5710,19 @@
             }
         }
         
-        // Helper function to format datetime consistently
+        // Helper function to format datetime consistently for CSV (DD/MM/YYYY HH:MM format)
         function formatDateTimeForCSV(dateString) {
             if (!dateString) return '';
             try {
                 const date = new Date(dateString);
                 if (isNaN(date.getTime())) return dateString; // Return original if invalid
-                return date.toLocaleString('en-IN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                // Format as DD/MM/YYYY HH:MM
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = date.getFullYear();
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return `${day}/${month}/${year} ${hours}:${minutes}`;
             } catch (e) {
                 return dateString;
             }
@@ -5767,7 +5773,7 @@
                         escapeCSV(invoiceFileName),
                         escapeCSV(expense.description || ''),
                         escapeCSV(getWarehouseName(expense.warehouse) || expense.warehouse || ''),
-                        escapeCSV(users[expense.createdBy]?.name || expense.createdBy || ''),
+                        escapeCSV(expense.createdBy || ''), // Show employee code instead of name
                         escapeCSV(formatDateTimeForCSV(expense.createdAt)),
                         escapeCSV(getApprovalStatusText(expense.status || 'pending'))
                     ];
@@ -5776,25 +5782,25 @@
                     let approvalFields = [];
                     if (ENABLE_3RD_LEVEL_APPROVAL) {
                         approvalFields = [
-                            escapeCSV(expense.firstApprovedBy ? (users[expense.firstApprovedBy]?.name || expense.firstApprovedBy) : ''),
+                            escapeCSV(expense.firstApprovedBy || ''), // Show employee code instead of name
                             escapeCSV(formatDateTimeForCSV(expense.firstApprovedAt)),
-                            escapeCSV(expense.secondApprovedBy ? (users[expense.secondApprovedBy]?.name || expense.secondApprovedBy) : ''),
+                            escapeCSV(expense.secondApprovedBy || ''), // Show employee code instead of name
                             escapeCSV(formatDateTimeForCSV(expense.secondApprovedAt)),
-                            escapeCSV(expense.approvedBy && expense.status === 'approved' ? (users[expense.approvedBy]?.name || expense.approvedBy) : ''),
+                            escapeCSV(expense.approvedBy && expense.status === 'approved' ? expense.approvedBy : ''), // Show employee code instead of name
                             escapeCSV(formatDateTimeForCSV(expense.approvedAt && expense.status === 'approved' ? expense.approvedAt : '')),
                             escapeCSV(expense.status === 'rejected' ? (expense.rejectionReason || '') : '')
                         ];
                     } else if (ENABLE_2ND_LEVEL_APPROVAL) {
                         approvalFields = [
-                            escapeCSV(expense.firstApprovedBy ? (users[expense.firstApprovedBy]?.name || expense.firstApprovedBy) : ''),
+                            escapeCSV(expense.firstApprovedBy || ''), // Show employee code instead of name
                             escapeCSV(formatDateTimeForCSV(expense.firstApprovedAt)),
-                            escapeCSV(expense.approvedBy && expense.status === 'approved' ? (users[expense.approvedBy]?.name || expense.approvedBy) : ''),
+                            escapeCSV(expense.approvedBy && expense.status === 'approved' ? expense.approvedBy : ''), // Show employee code instead of name
                             escapeCSV(formatDateTimeForCSV(expense.approvedAt && expense.status === 'approved' ? expense.approvedAt : '')),
                             escapeCSV(expense.status === 'rejected' ? (expense.rejectionReason || '') : '')
                         ];
                     } else {
                         approvalFields = [
-                            escapeCSV(expense.approvedBy ? (users[expense.approvedBy]?.name || expense.approvedBy) : ''),
+                            escapeCSV(expense.approvedBy || ''), // Show employee code instead of name
                             escapeCSV(formatDateTimeForCSV(expense.approvedAt)),
                             escapeCSV(expense.status === 'rejected' ? (expense.rejectionReason || '') : '')
                         ];
