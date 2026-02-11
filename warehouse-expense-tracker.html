@@ -2960,17 +2960,18 @@
             loginButton.textContent = 'Logging in...';
             
             try {
-                // Load users (force reload to ensure latest data)
-                users = await getUsers(true);
-                console.log('Users loaded:', Object.keys(users));
+                // Load users once (use cache if available, only reload if needed)
+                users = await getUsers(false); // Don't force reload - use cache for faster login
+                console.log('Users loaded:', Object.keys(users).length, 'users');
                 
-                // Ensure admin user exists (fallback)
+                // Ensure admin user exists (fallback) - update in memory only
                 if (!users['admin']) {
-                    await saveUser('admin', { password: 'admin123', role: 'master', name: 'Master Admin' });
-                    users['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
+                    const adminData = { password: 'admin123', role: 'master', name: 'Master Admin' };
+                    await saveUser('admin', adminData);
+                    users['admin'] = adminData;
                 }
                 
-                // Ensure K02815 (Dhanalakshmi) exists - 2nd Level Approver
+                // Ensure K02815 (Dhanalakshmi) exists - 2nd Level Approver - update in memory only
                 if (!users['K02815']) {
                     try {
                         const userData = {
@@ -2983,27 +2984,16 @@
                         };
                         console.log('Creating K02815 user...');
                         await saveUser('K02815', userData);
-                        // Save directly to localStorage to ensure it's there
-                        const currentUsers = getUsersLocalStorage(false);
-                        currentUsers['K02815'] = userData;
-                        localStorage.setItem('warehouseUsers', JSON.stringify(currentUsers));
+                        // Update in-memory users object immediately
                         users['K02815'] = userData;
-                        console.log('✅ User K02815 created and saved during login');
-                        // Reload users to ensure it's saved
-                        users = await getUsers(true);
-                        console.log('Users after reload:', Object.keys(users));
+                        console.log('✅ User K02815 created');
                     } catch (error) {
                         console.error('Error creating K02815 during login:', error);
                     }
-                } else {
-                    console.log('K02815 already exists:', users['K02815']);
                 }
                 
-                // Final check - reload users one more time
-                users = await getUsers(true);
-                console.log('Final users check:', Object.keys(users));
-                console.log('Looking for username:', username);
-                console.log('User exists?', !!users[username]);
+                // Validate user exists (no need to reload - we already have users in memory)
+                console.log('Validating user:', username);
                 
                 // Check if user exists and password matches
                 if (!users[username]) {
