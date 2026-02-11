@@ -5007,9 +5007,20 @@
                 console.log(`[2nd Level Approver] Current approval filter: ${currentApprovalFilter}, Current warehouse: ${currentWarehouse}`);
                 expensesToShow = allFirstApproved;
             } else {
-                // First level approvers see expenses that are pending (or have no status, which defaults to pending)
+                // First level approvers (including admin/master) see expenses that are pending (or have no status, which defaults to pending)
                 expensesToShow = expenses.filter(expense => expense.status === 'pending' || !expense.status || expense.status === '');
             }
+            
+            // Debug logging
+            console.log(`[displayApprovals] Current user: ${currentUser}, Role: ${users[currentUser]?.role}`);
+            console.log(`[displayApprovals] Total expenses: ${expenses.length}, Filtered by status: ${expensesToShow.length}`);
+            console.log(`[displayApprovals] Status breakdown:`, {
+                pending: expenses.filter(e => e.status === 'pending' || !e.status).length,
+                first_approved: expenses.filter(e => e.status === 'first_approved').length,
+                second_approved: expenses.filter(e => e.status === 'second_approved').length,
+                approved: expenses.filter(e => e.status === 'approved').length,
+                rejected: expenses.filter(e => e.status === 'rejected').length
+            });
             
             // Get user's accessible warehouses
             const accessibleWarehouses = getUserAccessibleWarehouses();
@@ -5095,16 +5106,26 @@
                     expensesToShow = expensesToShow.filter(expense => {
                         const expenseWarehouse = String(expense.warehouse || '').trim();
                         const filterWarehouse = String(currentApprovalFilter || '').trim();
-                        return expenseWarehouse === filterWarehouse;
+                        const matches = expenseWarehouse === filterWarehouse;
+                        if (!matches && (expenseWarehouse === 'warehouse_7' || expenseWarehouse === 'warehouse_13')) {
+                            console.log(`[Filter Debug] Expense ${expense.id} from ${expenseWarehouse} (${getWarehouseName(expenseWarehouse)}) filtered out by filter ${filterWarehouse}`);
+                        }
+                        return matches;
                     });
                 }
             } else if (currentWarehouse && currentWarehouse !== 'all') {
                 // If no approval filter is set but warehouse selector is set, use warehouse selector
-                expensesToShow = expensesToShow.filter(expense => {
-                    const expenseWarehouse = String(expense.warehouse || '').trim();
-                    const filterWarehouse = String(currentWarehouse || '').trim();
-                    return expenseWarehouse === filterWarehouse;
-                });
+                // BUT: For master/admin users, don't filter by warehouse selector in approvals tab unless explicitly filtered
+                if (users[currentUser].role === 'master' && !currentApprovalFilter) {
+                    // Master users should see all pending expenses regardless of warehouse selector
+                    // Only filter if approval filter button is clicked
+                } else {
+                    expensesToShow = expensesToShow.filter(expense => {
+                        const expenseWarehouse = String(expense.warehouse || '').trim();
+                        const filterWarehouse = String(currentWarehouse || '').trim();
+                        return expenseWarehouse === filterWarehouse;
+                    });
+                }
             } else if (users[currentUser].role === 'master' && users[currentUser].warehouse && users[currentUser].warehouse !== '') {
                 // Master with warehouse restrictions but 'all' filter: show only accessible warehouses
                 expensesToShow = expensesToShow.filter(expense => 
@@ -5112,6 +5133,9 @@
                 );
             }
             // For master users with no warehouse restrictions and 'all' filter, show all pending expenses (no additional filtering)
+            
+            console.log(`[displayApprovals] After warehouse filtering: ${expensesToShow.length} expenses`);
+            console.log(`[displayApprovals] Current approval filter: ${currentApprovalFilter}, Current warehouse: ${currentWarehouse}`);
             
             if (expensesToShow.length === 0) {
                 let message = 'No pending approvals';
