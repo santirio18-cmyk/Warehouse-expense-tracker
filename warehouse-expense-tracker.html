@@ -5769,7 +5769,7 @@
                         escapeCSV(getWarehouseName(expense.warehouse) || expense.warehouse || ''),
                         escapeCSV(users[expense.createdBy]?.name || expense.createdBy || ''),
                         escapeCSV(formatDateTimeForCSV(expense.createdAt)),
-                        escapeCSV(expense.status || 'pending')
+                        escapeCSV(getApprovalStatusText(expense.status || 'pending'))
                     ];
                     
                     // Approval fields based on level
