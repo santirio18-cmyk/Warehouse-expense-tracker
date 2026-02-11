@@ -2757,6 +2757,17 @@
             return warehouseNames[warehouseId] || warehouseId;
         }
         
+        // Normalize warehouse to ID (handles "Yeswanthpur" -> "warehouse_6", "warehouse_6" -> "warehouse_6")
+        function normalizeWarehouseId(nameOrId) {
+            if (!nameOrId) return '';
+            const trimmed = String(nameOrId).trim();
+            if (trimmed.startsWith('warehouse_')) return trimmed;
+            for (const [id, name] of Object.entries(warehouseNames)) {
+                if (name === trimmed) return id;
+            }
+            return trimmed;
+        }
+        
         // Get approval status display text
         function getApprovalStatusText(status) {
             if (status === 'pending') {
@@ -2786,14 +2797,15 @@
             if (!user.warehouse || user.warehouse === '' || user.warehouse.trim() === '') {
                 return true; // Empty means all warehouses
             }
-            // Get assigned warehouses
-            const userWarehouses = user.warehouse.split(',').map(w => w.trim()).filter(w => w);
+            // Get assigned warehouses (normalize to IDs)
+            const userWarehouses = user.warehouse.split(',').map(w => normalizeWarehouseId(w.trim())).filter(w => w);
             // If all 28 warehouses are assigned, treat it as "all warehouses" access
             if (userWarehouses.length === 28) {
                 return true;
             }
-            // Check if warehouse is in user's assigned warehouses list
-            return userWarehouses.includes(warehouse);
+            // Check if warehouse is in user's assigned warehouses list (normalize for comparison)
+            const warehouseId = normalizeWarehouseId(warehouse);
+            return userWarehouses.includes(warehouseId) || userWarehouses.includes(warehouse);
         }
         
         // Get list of warehouses accessible to current user
@@ -2819,8 +2831,8 @@
                 return Array.from({length: 28}, (_, i) => `warehouse_${i + 1}`);
             }
             
-            // Get assigned warehouses
-            const assignedWarehouses = user.warehouse.split(',').map(w => w.trim()).filter(w => w);
+            // Get assigned warehouses (normalize to IDs for consistency)
+            const assignedWarehouses = user.warehouse.split(',').map(w => normalizeWarehouseId(w.trim())).filter(w => w);
             
             // If all 28 warehouses are assigned, treat it as "all warehouses" access
             if (assignedWarehouses.length === 28) {
@@ -3561,21 +3573,22 @@
             } else if (users[currentUser].role === 'approver') {
                 // Approver: see warehouses based on their assignment
                 if (currentWarehouse && currentWarehouse !== 'all') {
-                    // Filter by warehouse selector if set - use strict string comparison
+                    // Filter by warehouse selector if set - normalize for comparison (handles warehouse_6 vs Yeswanthpur)
                     if (hasWarehouseAccess(users[currentUser], currentWarehouse)) {
+                        const filterWarehouseId = normalizeWarehouseId(currentWarehouse);
                         filteredExpenses = filteredExpenses.filter(expense => {
-                            const expenseWarehouse = String(expense.warehouse || '').trim();
-                            const filterWarehouse = String(currentWarehouse || '').trim();
-                            return expenseWarehouse === filterWarehouse;
+                            const expenseWarehouseId = normalizeWarehouseId(expense.warehouse);
+                            return expenseWarehouseId === filterWarehouseId;
                         });
                     } else {
                         filteredExpenses = []; // No access to selected warehouse
                     }
                 } else {
                     // If no specific warehouse selected, show only accessible warehouses
-                    filteredExpenses = filteredExpenses.filter(expense => 
-                        accessibleWarehouses.includes(expense.warehouse)
-                    );
+                    filteredExpenses = filteredExpenses.filter(expense => {
+                        const expenseWarehouseId = normalizeWarehouseId(expense.warehouse);
+                        return accessibleWarehouses.includes(expenseWarehouseId) || accessibleWarehouses.includes(expense.warehouse);
+                    });
                 }
             } else if (users[currentUser].role === 'master') {
                 // Master users: respect warehouse restrictions if they have assigned warehouses
