@@ -1683,13 +1683,10 @@
         // ============================================
         // EMAIL CONFIGURATION (EmailJS)
         // ============================================
-        // To enable email notifications:
-        // 1. Sign up at https://www.emailjs.com (free account)
-        // 2. Create an email service (Gmail, Outlook, etc.)
-        // 3. Create email templates
-        // 4. Get your Public Key, Service ID, and Template IDs
-        // 5. Update the values below
+        // Set to true to enable email notifications (approvers get notified on expense submission/approval/rejection)
+        const ENABLE_EMAIL_NOTIFICATIONS = true;
         
+        // To enable: 1) Sign up at https://www.emailjs.com  2) Create service + templates  3) Update values below
         const EMAILJS_CONFIG = {
             PUBLIC_KEY: 'YOUR_PUBLIC_KEY', // Get from EmailJS dashboard
             SERVICE_ID: 'YOUR_SERVICE_ID', // Your email service ID
@@ -1699,16 +1696,16 @@
         };
         
         let emailConfigured = false;
-        if (EMAILJS_CONFIG.PUBLIC_KEY && EMAILJS_CONFIG.PUBLIC_KEY !== 'YOUR_PUBLIC_KEY') {
+        if (ENABLE_EMAIL_NOTIFICATIONS && EMAILJS_CONFIG.PUBLIC_KEY && EMAILJS_CONFIG.PUBLIC_KEY !== 'YOUR_PUBLIC_KEY') {
             emailConfigured = true;
-            // Load EmailJS SDK
             (function(){
                 emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
             })();
-            console.log('✅ EmailJS configured - email notifications enabled');
+            console.log('✅ Email notifications enabled');
+        } else if (ENABLE_EMAIL_NOTIFICATIONS) {
+            console.log('⚠️ Email enabled but credentials missing - add your EmailJS keys to EMAILJS_CONFIG');
         } else {
-            console.log('ℹ️ EmailJS not configured - email notifications disabled');
-            console.log('ℹ️ To enable: Sign up at https://www.emailjs.com and update EMAILJS_CONFIG');
+            console.log('ℹ️ Email notifications disabled (ENABLE_EMAIL_NOTIFICATIONS = false)');
         }
         
         // ============================================
