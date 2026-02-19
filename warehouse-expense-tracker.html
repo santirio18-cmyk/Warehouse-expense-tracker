@@ -3032,11 +3032,11 @@
             loginButton.textContent = 'Logging in...';
             
             try {
-                // Always sync users from Firebase on login (ensures K02852, K01386, etc. are found - no stale cache)
+                // Use cache first (fast, works for returning users) - sync from Firebase only if user not found
                 if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
                     await initializeFirebase();
                 }
-                users = await getUsers(true); // Force reload - always get latest from Firebase
+                users = await getUsers(false); // Cache first - same as before when login worked
                 console.log('Users loaded:', Object.keys(users).length, 'users');
                 
                 // Ensure admin user exists (fallback)
