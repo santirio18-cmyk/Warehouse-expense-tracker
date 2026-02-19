@@ -1672,13 +1672,13 @@
             });
         }
         
-        // Initialize Firebase after page load for better performance
+        // Initialize Firebase early so it's ready when user logs in
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
-                setTimeout(initializeFirebase, 1000); // Delay Firebase init by 1 second
+                setTimeout(initializeFirebase, 200); // Short delay - ready for login
             });
         } else {
-            setTimeout(initializeFirebase, 1000);
+            setTimeout(initializeFirebase, 200);
         }
         
         // ============================================
@@ -1910,9 +1910,10 @@
                 return localUsers;
             }
             
-            // If Firebase is configured, merge Firebase users with local (but don't overwrite local)
-            // This only happens on forceReload or when local storage is empty
-            if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE" && db) {
+            // If Firebase is configured, merge Firebase users with local
+            if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
+                if (!db) await initializeFirebase();
+                if (db) {
                 try {
                     const snapshot = await db.collection('users').get();
                     const firebaseUsers = {};
@@ -1935,6 +1936,7 @@
                 } catch (error) {
                     console.error('Error loading users from Firebase:', error);
                     // Fall through to localStorage
+                }
                 }
             }
             
@@ -2589,11 +2591,34 @@
                 
                 overlay.classList.add('show');
                 
-                // Close on overlay click
                 overlay.onclick = (e) => {
                     if (e.target === overlay) {
                         closeCustomModal();
                         resolve(true);
+                    }
+                };
+                
+                window.customModalResolve = resolve;
+            });
+        }
+        
+        function customAlertWithRetry(message) {
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('customModalOverlay');
+                const title = document.getElementById('customModalTitle');
+                const body = document.getElementById('customModalMessage');
+                const footer = document.getElementById('customModalFooter');
+                
+                title.textContent = 'SCM Petty Cash Expense Management System';
+                body.innerHTML = message.replace(/\n/g, '<br>') + '<br><br>🔄 Click Retry to sync from server and try again.';
+                footer.innerHTML = '<button class="custom-modal-btn custom-modal-btn-secondary" onclick="closeCustomModal(); window.customModalResolve(false);">OK</button><button class="custom-modal-btn custom-modal-btn-primary" onclick="closeCustomModal(); window.customModalResolve(\'retry\');">Retry</button>';
+                
+                overlay.classList.add('show');
+                
+                overlay.onclick = (e) => {
+                    if (e.target === overlay) {
+                        closeCustomModal();
+                        resolve(false);
                     }
                 };
                 
@@ -3039,13 +3064,21 @@
                     }
                 }
                 
-                // Validate user exists
-                if (!users[username]) {
+                // Validate user exists - offer Retry if not found (sync may have failed)
+                while (!users[username]) {
                     const availableUsers = Object.keys(users).join(', ');
-                    await customAlert(`Invalid username or password!\n\nUser "${username}" not found.\n\nAvailable users: ${availableUsers}\n\nPlease check:\n• Username is correct (case-sensitive)\n• User exists in the system\n• Contact admin if user needs to be created`);
-                    loginButton.disabled = false;
-                    loginButton.textContent = originalButtonText;
-                    return;
+                    const msg = `User "${username}" not found.\n\nAvailable users: ${availableUsers}\n\nPlease check:\n• Username is correct (case-sensitive)\n• User exists in the system\n• Contact admin if user needs to be created`;
+                    const result = await customAlertWithRetry(msg);
+                    if (result === 'retry') {
+                        loginButton.textContent = 'Syncing...';
+                        await initializeFirebase();
+                        users = await getUsers(true);
+                        console.log('Retry - Users loaded:', Object.keys(users).length);
+                    } else {
+                        loginButton.disabled = false;
+                        loginButton.textContent = originalButtonText;
+                        return;
+                    }
                 }
                 
                 if (users[username].password !== password) {
