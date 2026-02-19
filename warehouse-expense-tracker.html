@@ -3007,8 +3007,8 @@
             loginButton.textContent = 'Logging in...';
             
             try {
-                // Load users once (use cache if available, only reload if needed)
-                users = await getUsers(false); // Don't force reload - use cache for faster login
+                // Load users (use cache for speed, but sync from Firebase if user not found - fixes stale localStorage)
+                users = await getUsers(false);
                 console.log('Users loaded:', Object.keys(users).length, 'users');
                 
                 // Ensure admin user exists (fallback) - update in memory only
@@ -3031,7 +3031,6 @@
                         };
                         console.log('Creating K02815 user...');
                         await saveUser('K02815', userData);
-                        // Update in-memory users object immediately
                         users['K02815'] = userData;
                         console.log('✅ User K02815 created');
                     } catch (error) {
@@ -3039,16 +3038,28 @@
                     }
                 }
                 
-                // Validate user exists (no need to reload - we already have users in memory)
+                // Validate user exists
                 console.log('Validating user:', username);
                 
-                // Check if user exists and password matches
                 if (!users[username]) {
-                    const availableUsers = Object.keys(users).join(', ');
-                    await customAlert(`Invalid username or password!\n\nUser "${username}" not found.\n\nAvailable users: ${availableUsers}\n\nPlease check:\n• Username is correct (case-sensitive)\n• User exists in the system\n• Contact admin if user needs to be created`);
-                    loginButton.disabled = false;
-                    loginButton.textContent = originalButtonText;
-                    return;
+                    // User not found - may be stale localStorage. Force sync from Firebase and retry.
+                    if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
+                        await initializeFirebase();
+                        if (db) {
+                            console.log('User not found in cache - syncing from Firebase...');
+                            users = await getUsers(true);
+                            if (users[username]) {
+                                console.log('✅ User found after Firebase sync');
+                            }
+                        }
+                    }
+                    if (!users[username]) {
+                        const availableUsers = Object.keys(users).join(', ');
+                        await customAlert(`Invalid username or password!\n\nUser "${username}" not found.\n\nAvailable users: ${availableUsers}\n\nPlease check:\n• Username is correct (case-sensitive)\n• User exists in the system\n• Contact admin if user needs to be created`);
+                        loginButton.disabled = false;
+                        loginButton.textContent = originalButtonText;
+                        return;
+                    }
                 }
                 
                 if (users[username].password !== password) {
