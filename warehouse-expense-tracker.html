@@ -1628,8 +1628,13 @@
                 useFirebase = true;
                 console.log('✅ Firebase initialized successfully');
                 
-                // Set up real-time listener after initialization
                 setupFirebaseListener();
+                
+                // Sync users from Firebase immediately - so both new and returning users can login without Retry
+                getUsers(true).then(loadedUsers => {
+                    users = loadedUsers;
+                    console.log('Users synced from Firebase:', Object.keys(users).length);
+                }).catch(err => console.warn('User sync failed:', err));
             } catch (error) {
                 console.error('❌ Firebase initialization error:', error);
                 useFirebase = false;
