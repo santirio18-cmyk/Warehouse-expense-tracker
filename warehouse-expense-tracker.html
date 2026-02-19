@@ -3007,18 +3007,21 @@
             loginButton.textContent = 'Logging in...';
             
             try {
-                // Load users (use cache for speed, but sync from Firebase if user not found - fixes stale localStorage)
-                users = await getUsers(false);
+                // Always sync users from Firebase on login (ensures K02852, K01386, etc. are found - no stale cache)
+                if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
+                    await initializeFirebase();
+                }
+                users = await getUsers(true); // Force reload - always get latest from Firebase
                 console.log('Users loaded:', Object.keys(users).length, 'users');
                 
-                // Ensure admin user exists (fallback) - update in memory only
+                // Ensure admin user exists (fallback)
                 if (!users['admin']) {
                     const adminData = { password: 'admin123', role: 'master', name: 'Master Admin' };
                     await saveUser('admin', adminData);
                     users['admin'] = adminData;
                 }
                 
-                // Ensure K02815 (Dhanalakshmi) exists - 2nd Level Approver - update in memory only
+                // Ensure K02815 (Dhanalakshmi) exists - 2nd Level Approver
                 if (!users['K02815']) {
                     try {
                         const userData = {
@@ -3029,37 +3032,20 @@
                             email: 'dhanalakshmi.dhanapal@tvs.in',
                             warehouse: ''
                         };
-                        console.log('Creating K02815 user...');
                         await saveUser('K02815', userData);
                         users['K02815'] = userData;
-                        console.log('✅ User K02815 created');
                     } catch (error) {
                         console.error('Error creating K02815 during login:', error);
                     }
                 }
                 
                 // Validate user exists
-                console.log('Validating user:', username);
-                
                 if (!users[username]) {
-                    // User not found - may be stale localStorage. Force sync from Firebase and retry.
-                    if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
-                        await initializeFirebase();
-                        if (db) {
-                            console.log('User not found in cache - syncing from Firebase...');
-                            users = await getUsers(true);
-                            if (users[username]) {
-                                console.log('✅ User found after Firebase sync');
-                            }
-                        }
-                    }
-                    if (!users[username]) {
-                        const availableUsers = Object.keys(users).join(', ');
-                        await customAlert(`Invalid username or password!\n\nUser "${username}" not found.\n\nAvailable users: ${availableUsers}\n\nPlease check:\n• Username is correct (case-sensitive)\n• User exists in the system\n• Contact admin if user needs to be created`);
-                        loginButton.disabled = false;
-                        loginButton.textContent = originalButtonText;
-                        return;
-                    }
+                    const availableUsers = Object.keys(users).join(', ');
+                    await customAlert(`Invalid username or password!\n\nUser "${username}" not found.\n\nAvailable users: ${availableUsers}\n\nPlease check:\n• Username is correct (case-sensitive)\n• User exists in the system\n• Contact admin if user needs to be created`);
+                    loginButton.disabled = false;
+                    loginButton.textContent = originalButtonText;
+                    return;
                 }
                 
                 if (users[username].password !== password) {
