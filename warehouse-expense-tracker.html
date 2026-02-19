@@ -15,7 +15,8 @@
             if (firebaseLoaded) return;
             const scripts = [
                 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
-                'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js'
+                'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js',
+                'https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js'
             ];
             for (const src of scripts) {
                 await new Promise((resolve, reject) => {
@@ -1681,31 +1682,33 @@
         }
         
         // ============================================
-        // EMAIL CONFIGURATION (EmailJS)
+        // EMAIL CONFIGURATION
         // ============================================
-        // Set to true to enable email notifications (approvers get notified on expense submission/approval/rejection)
+        // Option A: Resend (via Firebase Cloud Functions) - RECOMMENDED if you have Resend key
+        // Option B: EmailJS - Alternative, no backend needed
         const ENABLE_EMAIL_NOTIFICATIONS = true;
+        const USE_RESEND_EMAIL = true;  // Set true to use Resend via Firebase, false for EmailJS
         
-        // To enable: 1) Sign up at https://www.emailjs.com  2) Create service + templates  3) Update values below
         const EMAILJS_CONFIG = {
-            PUBLIC_KEY: 'YOUR_PUBLIC_KEY', // Get from EmailJS dashboard
-            SERVICE_ID: 'YOUR_SERVICE_ID', // Your email service ID
-            TEMPLATE_APPROVAL: 'YOUR_APPROVAL_TEMPLATE_ID', // Template for approval emails
-            TEMPLATE_REJECTION: 'YOUR_REJECTION_TEMPLATE_ID', // Template for rejection emails
-            TEMPLATE_SUBMISSION: 'YOUR_SUBMISSION_TEMPLATE_ID' // Template for expense submission
+            PUBLIC_KEY: 'YOUR_PUBLIC_KEY',
+            SERVICE_ID: 'YOUR_SERVICE_ID',
+            TEMPLATE_APPROVAL: 'YOUR_APPROVAL_TEMPLATE_ID',
+            TEMPLATE_REJECTION: 'YOUR_REJECTION_TEMPLATE_ID',
+            TEMPLATE_SUBMISSION: 'YOUR_SUBMISSION_TEMPLATE_ID'
         };
         
         let emailConfigured = false;
-        if (ENABLE_EMAIL_NOTIFICATIONS && EMAILJS_CONFIG.PUBLIC_KEY && EMAILJS_CONFIG.PUBLIC_KEY !== 'YOUR_PUBLIC_KEY') {
+        if (ENABLE_EMAIL_NOTIFICATIONS && USE_RESEND_EMAIL && firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
             emailConfigured = true;
-            (function(){
-                emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
-            })();
-            console.log('✅ Email notifications enabled');
+            console.log('✅ Email notifications enabled (Resend via Firebase)');
+        } else if (ENABLE_EMAIL_NOTIFICATIONS && !USE_RESEND_EMAIL && EMAILJS_CONFIG.PUBLIC_KEY && EMAILJS_CONFIG.PUBLIC_KEY !== 'YOUR_PUBLIC_KEY') {
+            emailConfigured = true;
+            (function(){ emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY); })();
+            console.log('✅ Email notifications enabled (EmailJS)');
         } else if (ENABLE_EMAIL_NOTIFICATIONS) {
-            console.log('⚠️ Email enabled but credentials missing - add your EmailJS keys to EMAILJS_CONFIG');
+            console.log('⚠️ Email enabled but not configured - set up Resend (Firebase) or EmailJS');
         } else {
-            console.log('ℹ️ Email notifications disabled (ENABLE_EMAIL_NOTIFICATIONS = false)');
+            console.log('ℹ️ Email notifications disabled');
         }
         
         // ============================================
@@ -1768,60 +1771,79 @@
         }
         
         async function sendApprovalEmail(expense, action, approverName, approverEmail) {
-            if (!emailConfigured || !approverEmail) {
-                return; // Email not configured or no email address
-            }
+            if (!emailConfigured || !approverEmail) return;
+            
+            const actionText = action === 'approved' ? 'Approved' : action === 'first_approved' ? 'First Level Approved' : 'Rejected';
+            const subject = `Expense ${actionText} - ₹${expense.amount.toFixed(2)}`;
+            const html = `
+                <p>Hello ${approverName},</p>
+                <p>The following expense has been <strong>${actionText}</strong>:</p>
+                <ul>
+                    <li>Amount: ₹${expense.amount.toFixed(2)}</li>
+                    <li>Category: ${expense.category}</li>
+                    <li>Vendor: ${expense.vendorName || 'N/A'}</li>
+                    <li>Warehouse: ${getWarehouseName(expense.warehouse)}</li>
+                    <li>Date: ${new Date(expense.date).toLocaleDateString()}</li>
+                    ${expense.rejectionReason ? `<li>Rejection Reason: ${expense.rejectionReason}</li>` : ''}
+                </ul>
+                <p>By: ${users[expense.createdBy]?.name || expense.createdBy}</p>
+                <p><a href="${window.location.href}">View in App</a></p>
+            `;
             
             try {
-                const templateId = action === 'rejected' ? EMAILJS_CONFIG.TEMPLATE_REJECTION : EMAILJS_CONFIG.TEMPLATE_APPROVAL;
-                
-                const templateParams = {
-                    to_email: approverEmail,
-                    to_name: approverName,
-                    expense_amount: `₹${expense.amount.toFixed(2)}`,
-                    expense_category: expense.category,
-                    expense_vendor: expense.vendorName || 'N/A',
-                    expense_date: new Date(expense.date).toLocaleDateString(),
-                    expense_warehouse: getWarehouseName(expense.warehouse),
-                    expense_invoice: expense.invoiceNumber || 'N/A',
-                    action: action === 'approved' ? 'Approved' : action === 'first_approved' ? 'First Level Approved' : 'Rejected',
-                    rejection_reason: expense.rejectionReason || '',
-                    expense_creator: users[expense.createdBy]?.name || expense.createdBy
-                };
-                
-                await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, templateId, templateParams);
-                console.log('✅ Approval email sent successfully');
+                if (USE_RESEND_EMAIL && typeof firebase !== 'undefined' && firebase.functions) {
+                    const sendEmail = firebase.functions().httpsCallable('sendExpenseEmail');
+                    await sendEmail({ to: approverEmail, subject: subject, html: html });
+                } else {
+                    const templateId = action === 'rejected' ? EMAILJS_CONFIG.TEMPLATE_REJECTION : EMAILJS_CONFIG.TEMPLATE_APPROVAL;
+                    await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, templateId, {
+                        to_email: approverEmail, to_name: approverName, expense_amount: `₹${expense.amount.toFixed(2)}`,
+                        expense_category: expense.category, expense_vendor: expense.vendorName || 'N/A',
+                        expense_date: new Date(expense.date).toLocaleDateString(), expense_warehouse: getWarehouseName(expense.warehouse),
+                        expense_invoice: expense.invoiceNumber || 'N/A', action: actionText, rejection_reason: expense.rejectionReason || '',
+                        expense_creator: users[expense.createdBy]?.name || expense.createdBy
+                    });
+                }
+                console.log('✅ Approval email sent');
             } catch (error) {
                 console.error('❌ Error sending approval email:', error);
-                // Don't throw - email failure shouldn't block approval
             }
         }
         
         async function sendExpenseSubmissionEmail(expense, creatorEmail, creatorName, approverEmail, approverName) {
-            if (!emailConfigured || !approverEmail) {
-                return; // Email not configured or no approver email
-            }
+            if (!emailConfigured || !approverEmail) return;
+            
+            const subject = `New Expense Pending Approval - ₹${expense.amount.toFixed(2)}`;
+            const html = `
+                <p>Hello ${approverName},</p>
+                <p>A new expense has been submitted and requires your approval:</p>
+                <ul>
+                    <li>Amount: ₹${expense.amount.toFixed(2)}</li>
+                    <li>Category: ${expense.category}</li>
+                    <li>Vendor: ${expense.vendorName || 'N/A'}</li>
+                    <li>Warehouse: ${getWarehouseName(expense.warehouse)}</li>
+                    <li>Date: ${new Date(expense.date).toLocaleDateString()}</li>
+                    <li>Submitted by: ${creatorName} (${creatorEmail || 'N/A'})</li>
+                </ul>
+                <p><a href="${window.location.href}">Review in App</a></p>
+            `;
             
             try {
-                const templateParams = {
-                    to_email: approverEmail,
-                    to_name: approverName,
-                    expense_amount: `₹${expense.amount.toFixed(2)}`,
-                    expense_category: expense.category,
-                    expense_vendor: expense.vendorName || 'N/A',
-                    expense_date: new Date(expense.date).toLocaleDateString(),
-                    expense_warehouse: getWarehouseName(expense.warehouse),
-                    expense_invoice: expense.invoiceNumber || 'N/A',
-                    creator_name: creatorName,
-                    creator_email: creatorEmail || 'N/A',
-                    expense_link: window.location.href // Link to view expense
-                };
-                
-                await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.TEMPLATE_SUBMISSION, templateParams);
-                console.log('✅ Expense submission email sent to approver');
+                if (USE_RESEND_EMAIL && typeof firebase !== 'undefined' && firebase.functions) {
+                    const sendEmail = firebase.functions().httpsCallable('sendExpenseEmail');
+                    await sendEmail({ to: approverEmail, subject: subject, html: html });
+                } else {
+                    await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.TEMPLATE_SUBMISSION, {
+                        to_email: approverEmail, to_name: approverName, expense_amount: `₹${expense.amount.toFixed(2)}`,
+                        expense_category: expense.category, expense_vendor: expense.vendorName || 'N/A',
+                        expense_date: new Date(expense.date).toLocaleDateString(), expense_warehouse: getWarehouseName(expense.warehouse),
+                        expense_invoice: expense.invoiceNumber || 'N/A', creator_name: creatorName, creator_email: creatorEmail || 'N/A',
+                        expense_link: window.location.href
+                    });
+                }
+                console.log('✅ Submission email sent to approver');
             } catch (error) {
                 console.error('❌ Error sending submission email:', error);
-                // Don't throw - email failure shouldn't block expense creation
             }
         }
         
@@ -3561,11 +3583,10 @@
             
             // Filter by warehouse based on user role
             if (users[currentUser].role === 'warehouse') {
-                // Warehouse users: only see their assigned warehouse expenses
+                // Warehouse users: see ALL their warehouse expenses (all statuses - pending, 2nd/3rd level pending, approved, rejected)
                 filteredExpenses = filteredExpenses.filter(expense => {
                     const warehouseMatch = hasWarehouseAccess(users[currentUser], expense.warehouse);
-                    const statusMatch = expense.status === 'approved' || expense.status === 'pending' || !expense.status;
-                    return warehouseMatch && statusMatch;
+                    return warehouseMatch;
                 });
             } else if (users[currentUser].role === 'approver') {
                 // Approver: see warehouses based on their assignment
@@ -3856,9 +3877,9 @@
             // Get user's accessible warehouses
             const accessibleWarehouses = getUserAccessibleWarehouses();
             
-            // Filter by warehouse based on user role
+            // Filter by warehouse based on user role (Summary: approved only for totals)
             if (users[currentUser].role === 'warehouse') {
-                // Warehouse users: only see their assigned warehouse approved expenses
+                // Warehouse users: only approved expenses in summary
                 filteredExpenses = filteredExpenses.filter(expense => 
                     hasWarehouseAccess(users[currentUser], expense.warehouse) && expense.status === 'approved'
                 );
@@ -5676,9 +5697,9 @@
             
             // Filter by warehouse - Respect user's warehouse access restrictions
             if (users[currentUser].role === 'warehouse') {
-                // Warehouse users: only see their assigned warehouse approved expenses
+                // Warehouse users: see ALL their warehouse expenses (all statuses)
                 filteredExpenses = filteredExpenses.filter(expense => 
-                    hasWarehouseAccess(users[currentUser], expense.warehouse) && expense.status === 'approved'
+                    hasWarehouseAccess(users[currentUser], expense.warehouse)
                 );
             } else if (users[currentUser].role === 'approver') {
                 // Approver: filter by warehouse selector or warehouse mapping
