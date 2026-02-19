@@ -2607,29 +2607,6 @@
             });
         }
         
-        function customAlertWithRetry(message) {
-            return new Promise((resolve) => {
-                const overlay = document.getElementById('customModalOverlay');
-                const title = document.getElementById('customModalTitle');
-                const body = document.getElementById('customModalMessage');
-                const footer = document.getElementById('customModalFooter');
-                
-                title.textContent = 'SCM Petty Cash Expense Management System';
-                body.innerHTML = message.replace(/\n/g, '<br>') + '<br><br>🔄 Click Retry to sync from server and try again.';
-                footer.innerHTML = '<button class="custom-modal-btn custom-modal-btn-secondary" onclick="closeCustomModal(); window.customModalResolve(false);">OK</button><button class="custom-modal-btn custom-modal-btn-primary" onclick="closeCustomModal(); window.customModalResolve(\'retry\');">Retry</button>';
-                
-                overlay.classList.add('show');
-                
-                overlay.onclick = (e) => {
-                    if (e.target === overlay) {
-                        closeCustomModal();
-                        resolve(false);
-                    }
-                };
-                
-                window.customModalResolve = resolve;
-            });
-        }
         
         function customConfirm(message) {
             return new Promise((resolve) => {
@@ -3069,21 +3046,19 @@
                     }
                 }
                 
-                // Validate user exists - offer Retry if not found (sync may have failed)
-                while (!users[username]) {
+                // Validate user exists - auto-sync from Firebase if not found (no Retry click needed)
+                if (!users[username] && firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
+                    loginButton.textContent = 'Syncing...';
+                    await initializeFirebase();
+                    users = await getUsers(true);
+                    console.log('Auto-sync - Users loaded:', Object.keys(users).length);
+                }
+                if (!users[username]) {
                     const availableUsers = Object.keys(users).join(', ');
-                    const msg = `User "${username}" not found.\n\nAvailable users: ${availableUsers}\n\nPlease check:\n• Username is correct (case-sensitive)\n• User exists in the system\n• Contact admin if user needs to be created`;
-                    const result = await customAlertWithRetry(msg);
-                    if (result === 'retry') {
-                        loginButton.textContent = 'Syncing...';
-                        await initializeFirebase();
-                        users = await getUsers(true);
-                        console.log('Retry - Users loaded:', Object.keys(users).length);
-                    } else {
-                        loginButton.disabled = false;
-                        loginButton.textContent = originalButtonText;
-                        return;
-                    }
+                    await customAlert(`User "${username}" not found.\n\nAvailable users: ${availableUsers}\n\nPlease check:\n• Username is correct (case-sensitive)\n• User exists in the system\n• Contact admin if user needs to be created`);
+                    loginButton.disabled = false;
+                    loginButton.textContent = originalButtonText;
+                    return;
                 }
                 
                 if (users[username].password !== password) {
