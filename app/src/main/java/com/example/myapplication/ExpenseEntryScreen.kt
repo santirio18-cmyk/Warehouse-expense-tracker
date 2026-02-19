@@ -190,8 +190,8 @@ fun ExpenseEntryScreen(
                                     .toLocalDate()
                             }
                             showDatePicker = false
-                        }
-                    ) {
+            }
+        ) {
                         Text("OK")
                     }
                 },
@@ -220,8 +220,8 @@ fun ExpenseEntryScreen(
                         onClick = {
                             selectedTime = LocalTime.of(timePickerState.hour, timePickerState.minute)
                             showTimePicker = false
-                        }
-                    ) {
+            }
+        ) {
                         Text("OK")
                     }
                 },

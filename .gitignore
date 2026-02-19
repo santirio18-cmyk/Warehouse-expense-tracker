@@ -14,8 +14,10 @@ output.json
 
 # Local configuration
 local.properties
-.env
-.env.local
+
+# Firebase
+functions/node_modules/
+.runtimeconfig.json
 
 # OS files
 .DS_Store

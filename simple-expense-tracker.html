@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Warehouse Expense Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            background: #e0e0e0;
+            border: none;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        .tab.active {
+            background: #4CAF50;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .expense-item {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        .expense-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .expense-category {
+            background: #4CAF50;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        .expense-amount {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2e7d32;
+        }
+        .delete-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .summary-card {
+            background: #e3f2fd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .summary-card h3 {
+            margin: 0;
+            color: #1976d2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏢 Warehouse Expense Tracker</h1>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('add')">Add Expense</button>
+            <button class="tab" onclick="showTab('list')">View Expenses</button>
+            <button class="tab" onclick="showTab('summary')">Summary</button>
+        </div>
+
+        <!-- Add Expense Tab -->
+        <div id="add" class="tab-content active">
+            <h2>Add New Expense</h2>
+            <form id="expenseForm">
+                <div class="form-group">
+                    <label for="date">Date:</label>
+                    <input type="date" id="date" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="time">Time:</label>
+                    <input type="time" id="time" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="category">Category:</label>
+                    <select id="category" required>
+                        <option value="Pooja">Pooja</option>
+                        <option value="Tea">Tea</option>
+                        <option value="Petrol">Petrol</option>
+                        <option value="Lunch">Lunch</option>
+                        <option value="Travel">Travel</option>
+                        <option value="Freight">Freight</option>
+                        <option value="Maintenance">Maintenance</option>
+                        <option value="Utilities">Utilities</option>
+                        <option value="Supplies">Supplies</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="amount">Amount (₹):</label>
+                    <input type="number" id="amount" step="0.01" min="0" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="description">Description (Optional):</label>
+                    <textarea id="description" rows="3"></textarea>
+                </div>
+                
+                <button type="submit">Add Expense</button>
+            </form>
+        </div>
+
+        <!-- View Expenses Tab -->
+        <div id="list" class="tab-content">
+            <h2>Expense List</h2>
+            <div>
+                <button onclick="filterExpenses('all')">All</button>
+                <button onclick="filterExpenses('today')">Today</button>
+                <button onclick="filterExpenses('week')">This Week</button>
+                <button onclick="filterExpenses('month')">This Month</button>
+            </div>
+            <div id="expenseList"></div>
+        </div>
+
+        <!-- Summary Tab -->
+        <div id="summary" class="tab-content">
+            <h2>Expense Summary</h2>
+            <div class="summary-card">
+                <h3 id="totalAmount">₹0.00</h3>
+                <p>Total Expenses</p>
+            </div>
+            <div class="summary-card">
+                <h3 id="totalCount">0</h3>
+                <p>Total Entries</p>
+            </div>
+            <div id="categoryBreakdown"></div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize
+        let expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+        let currentFilter = 'all';
+
+        // Set today's date
+        document.getElementById('date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('time').value = new Date().toTimeString().slice(0, 5);
+
+        // Tab switching
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Update content
+            if (tabName === 'list') displayExpenses();
+            if (tabName === 'summary') updateSummary();
+        }
+
+        // Form submission
+        document.getElementById('expenseForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const expense = {
+                id: Date.now(),
+                date: document.getElementById('date').value,
+                time: document.getElementById('time').value,
+                category: document.getElementById('category').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                description: document.getElementById('description').value
+            };
+            
+            expenses.push(expense);
+            localStorage.setItem('expenses', JSON.stringify(expenses));
+            
+            // Reset form
+            this.reset();
+            document.getElementById('date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('time').value = new Date().toTimeString().slice(0, 5);
+            
+            alert('Expense added successfully!');
+        });
+
+        // Filter expenses
+        function filterExpenses(filter) {
+            currentFilter = filter;
+            displayExpenses();
+        }
+
+        // Display expenses
+        function displayExpenses() {
+            const expenseList = document.getElementById('expenseList');
+            let filteredExpenses = expenses;
+            
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            
+            switch(currentFilter) {
+                case 'today':
+                    filteredExpenses = expenses.filter(expense => {
+                        const expenseDate = new Date(expense.date);
+                        return expenseDate >= today;
+                    });
+                    break;
+                case 'week':
+                    const weekStart = new Date(today);
+                    weekStart.setDate(today.getDate() - today.getDay());
+                    filteredExpenses = expenses.filter(expense => {
+                        const expenseDate = new Date(expense.date);
+                        return expenseDate >= weekStart;
+                    });
+                    break;
+                case 'month':
+                    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                    filteredExpenses = expenses.filter(expense => {
+                        const expenseDate = new Date(expense.date);
+                        return expenseDate >= monthStart;
+                    });
+                    break;
+            }
+            
+            filteredExpenses.sort((a, b) => new Date(b.date + ' ' + b.time) - new Date(a.date + ' ' + a.time));
+            
+            if (filteredExpenses.length === 0) {
+                expenseList.innerHTML = '<p>No expenses found.</p>';
+                return;
+            }
+            
+            expenseList.innerHTML = filteredExpenses.map(expense => `
+                <div class="expense-item">
+                    <div class="expense-header">
+                        <span class="expense-category">${expense.category}</span>
+                        <span class="expense-amount">₹${expense.amount.toFixed(2)}</span>
+                    </div>
+                    <p><strong>Date:</strong> ${new Date(expense.date).toLocaleDateString()} at ${expense.time}</p>
+                    ${expense.description ? `<p><strong>Description:</strong> ${expense.description}</p>` : ''}
+                    <button class="delete-btn" onclick="deleteExpense(${expense.id})">Delete</button>
+                </div>
+            `).join('');
+        }
+
+        // Delete expense
+        function deleteExpense(id) {
+            if (confirm('Delete this expense?')) {
+                expenses = expenses.filter(expense => expense.id !== id);
+                localStorage.setItem('expenses', JSON.stringify(expenses));
+                displayExpenses();
+                updateSummary();
+            }
+        }
+
+        // Update summary
+        function updateSummary() {
+            const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+            const totalCount = expenses.length;
+            
+            document.getElementById('totalAmount').textContent = `₹${totalAmount.toFixed(2)}`;
+            document.getElementById('totalCount').textContent = totalCount;
+            
+            // Category breakdown
+            const categoryBreakdown = {};
+            expenses.forEach(expense => {
+                categoryBreakdown[expense.category] = (categoryBreakdown[expense.category] || 0) + expense.amount;
+            });
+            
+            const categoryBreakdownDiv = document.getElementById('categoryBreakdown');
+            categoryBreakdownDiv.innerHTML = '<h3>Category Breakdown</h3>' + 
+                Object.entries(categoryBreakdown)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([category, amount]) => `
+                        <div class="summary-card">
+                            <h3>${category}</h3>
+                            <p>₹${amount.toFixed(2)}</p>
+                        </div>
+                    `).join('');
+        }
+
+        // Initialize
+        displayExpenses();
+        updateSummary();
+    </script>
+</body>
+</html>
+
+
+
+
