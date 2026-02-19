@@ -1629,12 +1629,6 @@
                 console.log('✅ Firebase initialized successfully');
                 
                 setupFirebaseListener();
-                
-                // Sync users from Firebase immediately - so both new and returning users can login without Retry
-                getUsers(true).then(loadedUsers => {
-                    users = loadedUsers;
-                    console.log('Users synced from Firebase:', Object.keys(users).length);
-                }).catch(err => console.warn('User sync failed:', err));
             } catch (error) {
                 console.error('❌ Firebase initialization error:', error);
                 useFirebase = false;
@@ -3014,45 +3008,28 @@
             loginButton.textContent = 'Logging in...';
             
             try {
-                // Use cache first (fast, works for returning users) - sync from Firebase only if user not found
+                // Always fetch users from Firebase on login - one source of truth, works for all users
                 if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
                     await initializeFirebase();
                 }
-                users = await getUsers(false); // Cache first - same as before when login worked
+                users = await getUsers(true);
                 console.log('Users loaded:', Object.keys(users).length, 'users');
                 
-                // Ensure admin user exists (fallback)
                 if (!users['admin']) {
                     const adminData = { password: 'admin123', role: 'master', name: 'Master Admin' };
                     await saveUser('admin', adminData);
                     users['admin'] = adminData;
                 }
-                
-                // Ensure K02815 (Dhanalakshmi) exists - 2nd Level Approver
                 if (!users['K02815']) {
                     try {
-                        const userData = {
-                            password: 'K02815@123',
-                            role: 'approver',
-                            name: 'Dhanalakshmi',
-                            employeeCode: 'K02815',
-                            email: 'dhanalakshmi.dhanapal@tvs.in',
-                            warehouse: ''
-                        };
-                        await saveUser('K02815', userData);
-                        users['K02815'] = userData;
-                    } catch (error) {
-                        console.error('Error creating K02815 during login:', error);
-                    }
+                        await saveUser('K02815', {
+                            password: 'K02815@123', role: 'approver', name: 'Dhanalakshmi',
+                            employeeCode: 'K02815', email: 'dhanalakshmi.dhanapal@tvs.in', warehouse: ''
+                        });
+                        users['K02815'] = { password: 'K02815@123', role: 'approver', name: 'Dhanalakshmi', employeeCode: 'K02815', email: 'dhanalakshmi.dhanapal@tvs.in', warehouse: '' };
+                    } catch (err) { console.error('Error creating K02815:', err); }
                 }
                 
-                // Validate user exists - auto-sync from Firebase if not found (no Retry click needed)
-                if (!users[username] && firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
-                    loginButton.textContent = 'Syncing...';
-                    await initializeFirebase();
-                    users = await getUsers(true);
-                    console.log('Auto-sync - Users loaded:', Object.keys(users).length);
-                }
                 if (!users[username]) {
                     const availableUsers = Object.keys(users).join(', ');
                     await customAlert(`User "${username}" not found.\n\nAvailable users: ${availableUsers}\n\nPlease check:\n• Username is correct (case-sensitive)\n• User exists in the system\n• Contact admin if user needs to be created`);
