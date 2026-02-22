@@ -2984,12 +2984,12 @@
                 const gain = ctx.createGain();
                 osc.connect(gain);
                 gain.connect(ctx.destination);
-                osc.frequency.value = 800;
+                osc.frequency.value = 880;
                 osc.type = 'sine';
-                gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.35, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
                 osc.start(ctx.currentTime);
-                osc.stop(ctx.currentTime + 0.15);
+                osc.stop(ctx.currentTime + 0.4);
             } catch (e) { /* Sound not supported */ }
         }
         function showToast(type, title, message) {
@@ -2999,7 +2999,7 @@
             toast.innerHTML = `<span class="toast-icon">${icons[type] || 'ℹ️'}</span><div class="toast-content"><div class="toast-title">${title}</div><div class="toast-message">${message}</div></div>`;
             document.getElementById('toastContainer').appendChild(toast);
             playToastSound();
-            setTimeout(() => toast.remove(), 3000);
+            setTimeout(() => toast.remove(), 6000);
         }
 
         // Login functionality
