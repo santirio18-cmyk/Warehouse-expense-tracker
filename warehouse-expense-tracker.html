@@ -3150,7 +3150,11 @@
                 loginButton.textContent = originalButtonText;
             } catch (error) {
                 console.error('Login error:', error);
-                await customAlert('Login failed: ' + (error.message || 'Unknown error. Please try again.'));
+                let msg = error.message || 'Unknown error. Please try again.';
+                if (/server|unavailable|connection|network|failed|fetch/i.test(msg)) {
+                    msg = 'Connection failed. Please check:\n• Internet connection is working\n• Try mobile data if office WiFi blocks the app\n• Use the correct URL: ' + (window.location.origin || 'GitHub Pages URL');
+                }
+                await customAlert('Login failed: ' + msg);
                 loginButton.disabled = false;
                 loginButton.textContent = originalButtonText;
             }
