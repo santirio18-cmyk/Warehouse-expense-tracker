@@ -1771,6 +1771,7 @@
         
         async function sendApprovalEmail(expense, action, approverName, approverEmail) {
             if (!emailConfigured || !approverEmail) return;
+            if (USE_RESEND_EMAIL) await initializeFirebase();
             
             const actionText = action === 'approved' ? 'Approved' : action === 'first_approved' ? 'First Level Approved' : 'Rejected';
             const subject = `Expense ${actionText} - ₹${expense.amount.toFixed(2)}`;
@@ -1793,6 +1794,8 @@
                 if (USE_RESEND_EMAIL && typeof firebase !== 'undefined' && firebase.functions) {
                     const sendEmail = firebase.functions().httpsCallable('sendExpenseEmail');
                     await sendEmail({ to: approverEmail, subject: subject, html: html });
+                } else if (USE_RESEND_EMAIL) {
+                    console.warn('Email not sent: Firebase Functions not ready. Deploy: firebase deploy --only functions');
                 } else {
                     const templateId = action === 'rejected' ? EMAILJS_CONFIG.TEMPLATE_REJECTION : EMAILJS_CONFIG.TEMPLATE_APPROVAL;
                     await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, templateId, {
@@ -1806,11 +1809,13 @@
                 console.log('✅ Approval email sent');
             } catch (error) {
                 console.error('❌ Error sending approval email:', error);
+                if (USE_RESEND_EMAIL) showToast('warning', 'Email', 'Notification email could not be sent. Check RESEND_SETUP.md');
             }
         }
         
         async function sendExpenseSubmissionEmail(expense, creatorEmail, creatorName, approverEmail, approverName) {
             if (!emailConfigured || !approverEmail) return;
+            if (USE_RESEND_EMAIL) await initializeFirebase();
             
             const subject = `New Expense Pending Approval - ₹${expense.amount.toFixed(2)}`;
             const html = `
@@ -1831,6 +1836,8 @@
                 if (USE_RESEND_EMAIL && typeof firebase !== 'undefined' && firebase.functions) {
                     const sendEmail = firebase.functions().httpsCallable('sendExpenseEmail');
                     await sendEmail({ to: approverEmail, subject: subject, html: html });
+                } else if (USE_RESEND_EMAIL) {
+                    console.warn('Email not sent: Firebase Functions not ready. Deploy: firebase deploy --only functions');
                 } else {
                     await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.TEMPLATE_SUBMISSION, {
                         to_email: approverEmail, to_name: approverName, expense_amount: `₹${expense.amount.toFixed(2)}`,
@@ -1843,6 +1850,7 @@
                 console.log('✅ Submission email sent to approver');
             } catch (error) {
                 console.error('❌ Error sending submission email:', error);
+                if (USE_RESEND_EMAIL) showToast('warning', 'Email', 'Notification email could not be sent. Check RESEND_SETUP.md');
             }
         }
         
