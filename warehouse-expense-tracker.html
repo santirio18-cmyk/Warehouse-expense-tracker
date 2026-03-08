@@ -2012,6 +2012,7 @@
             if (useFirebase && db) {
                 try {
                     await db.collection('users').doc(username).set(userData);
+                    saveUserLocalStorage(username, userData); // Keep local cache in sync
                     return true;
                 } catch (error) {
                     console.error('Error saving user to Firebase:', error);
@@ -4770,10 +4771,10 @@
                 window.editWarehouseResolve(true);
             }
             
-            await customAlert(`✅ Warehouses updated successfully for ${users[username].name}!`);
+            await customAlert(`✅ Warehouses updated successfully for ${users[username].name}!\n\nNote: User may need to refresh the page or log in again to see the update on their device.`);
             
-            // Reload users list
-            users = await getUsers();
+            // Reload from Firebase so K02852 and others get updated data on their devices
+            users = await getUsers(true);
             loadUsers();
         }
         
