@@ -1928,8 +1928,8 @@
                         firebaseUsers[doc.id] = doc.data();
                     });
                     
-                    // Merge: Local users take priority (they're more recent), Firebase fills gaps
-                    const mergedUsers = { ...firebaseUsers, ...localUsers };
+                    // Merge: Firebase is source of truth (server overwrites stale local cache)
+                    const mergedUsers = { ...localUsers, ...firebaseUsers };
                     
                     // Ensure admin exists
                     if (!mergedUsers['admin']) {
@@ -3514,11 +3514,10 @@
                 updateSummary();
                 
                 // Send email notifications to approvers
-                if (emailConfigured) {
+                const approvers = getApproversForExpense(expense);
+                if (emailConfigured && approvers.length > 0) {
                     const creatorData = users[currentUser];
-                    const approvers = getApproversForExpense(expense);
-                    
-                    // Send email to each approver who has access to this warehouse
+                    let sentCount = 0, failCount = 0;
                     approvers.forEach(approver => {
                         sendExpenseSubmissionEmail(
                             expense,
@@ -3526,10 +3525,19 @@
                             creatorData?.name || currentUser,
                             approver.email,
                             approver.name
-                        ).catch(err => {
+                        ).then(() => { sentCount++; if (sentCount + failCount === approvers.length) showToast('success', 'Notifications sent', `${sentCount} approver(s) notified by email`); })
+                        .catch(err => {
                             console.error(`Error sending email to ${approver.name}:`, err);
+                            failCount++;
+                            if (sentCount + failCount === approvers.length) {
+                                showToast(failCount === approvers.length ? 'error' : 'warning', 'Email issue', failCount === approvers.length ? 'Could not send notifications. Check RESEND_SETUP.md' : `${sentCount} sent, ${failCount} failed`);
+                            }
                         });
                     });
+                } else if (approvers.length === 0) {
+                    showToast('warning', 'No notifications', 'Add email for approvers (K02815, K01706, admin) in Users tab');
+                } else if (!emailConfigured) {
+                    showToast('warning', 'Email not configured', 'Deploy Firebase Functions + Resend (see RESEND_SETUP.md)');
                 }
                 
                 // Reload expenses from Firebase in background (non-blocking)
