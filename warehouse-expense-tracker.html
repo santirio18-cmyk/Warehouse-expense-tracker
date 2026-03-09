@@ -1638,6 +1638,21 @@
         function setupFirebaseListener() {
             if (!useFirebase || !db) return;
             
+            // Real-time users sync: admin changes (new user, role, warehouses) reflect on all devices automatically
+            db.collection('users').onSnapshot(snapshot => {
+                const firebaseUsers = {};
+                snapshot.forEach(doc => { firebaseUsers[doc.id] = doc.data(); });
+                const localUsers = getUsersLocalStorage(false);
+                const mergedUsers = { ...localUsers, ...firebaseUsers };
+                if (!mergedUsers['admin']) mergedUsers['admin'] = { password: 'admin123', role: 'master', name: 'Master Admin' };
+                localStorage.setItem('warehouseUsers', JSON.stringify(mergedUsers));
+                users = mergedUsers;
+                if (currentUser) {
+                    loadUsers();
+                    applyRoleBasedUI(currentUser);
+                }
+            }, err => console.error('Users sync error:', err));
+            
             db.collection('expenses').orderBy('date', 'desc').onSnapshot(snapshot => {
                 expenses = snapshot.docs.map(doc => {
                     const data = doc.data();
@@ -1722,8 +1737,8 @@
         // Check if 2nd level approval is enabled
         const ENABLE_2ND_LEVEL_APPROVAL = true; // Set to false to disable 2nd level approval
         
-        // Check if 3rd level approval is enabled
-        const ENABLE_3RD_LEVEL_APPROVAL = true; // Set to false to disable 3rd level approval
+        // Check if 3rd level approval is enabled (disabled - removed per user request)
+        const ENABLE_3RD_LEVEL_APPROVAL = false;
         
         // ============================================
         // EMAIL SENDING FUNCTIONS
@@ -3003,6 +3018,59 @@
             setTimeout(() => toast.remove(), 6000);
         }
 
+        // Apply role-based UI (used on login and when users sync from Firebase)
+        function applyRoleBasedUI(username) {
+            if (!users[username]) return;
+            const el = (id) => document.getElementById(id);
+            if (el('currentUser')) el('currentUser').textContent = users[username].name;
+            if (users[username].role === 'master') {
+                el('warehouseSelector').style.display = 'block';
+                el('usersTab').style.display = 'block';
+                el('approvalsTab').style.display = 'block';
+                filterWarehouseOptions('warehouseSelect');
+                filterWarehouseOptions('budgetWarehouse');
+                filterApprovalFilterButtons();
+                const warehouseSelect = el('warehouseSelect');
+                const allOption = warehouseSelect?.querySelector('option[value="all"]');
+                if (allOption) allOption.remove();
+                const accessibleWarehouses = getUserAccessibleWarehouses();
+                if (accessibleWarehouses.length > 0 && (!warehouseSelect?.value || warehouseSelect.value === 'all')) {
+                    warehouseSelect.value = accessibleWarehouses[0];
+                    currentWarehouse = accessibleWarehouses[0];
+                }
+                currentApprovalFilter = 'all';
+            } else if (users[username].role === 'approver') {
+                el('warehouseSelector').style.display = 'block';
+                el('usersTab').style.display = 'none';
+                el('approvalsTab').style.display = 'block';
+                filterWarehouseOptions('warehouseSelect');
+                filterWarehouseOptions('budgetWarehouse');
+                filterApprovalFilterButtons();
+                if (ENABLE_2ND_LEVEL_APPROVAL && username === SECOND_LEVEL_APPROVER_ID) {
+                    currentApprovalFilter = 'all';
+                    currentWarehouse = 'all';
+                    const ws = el('warehouseSelect');
+                    if (ws) ws.value = 'all';
+                } else {
+                    const accessibleWarehouses = getUserAccessibleWarehouses();
+                    if (accessibleWarehouses.length > 0) {
+                        el('warehouseSelect').value = accessibleWarehouses[0];
+                        currentWarehouse = accessibleWarehouses[0];
+                    } else {
+                        el('warehouseSelect').value = 'warehouse_1';
+                        currentWarehouse = 'warehouse_1';
+                    }
+                    const allOpt = el('warehouseSelect')?.querySelector('option[value="all"]');
+                    if (allOpt) allOpt.remove();
+                }
+            } else {
+                el('warehouseSelector').style.display = 'none';
+                el('usersTab').style.display = 'none';
+                el('approvalsTab').style.display = 'none';
+            }
+            if (el('approvals')?.classList.contains('active')) debouncedDisplayApprovals();
+        }
+
         // Login functionality
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -3061,75 +3129,9 @@
                 document.getElementById('loginScreen').style.display = 'none';
                 document.getElementById('mainApp').style.display = 'block';
                 
-                document.getElementById('currentUser').textContent = users[username].name;
-                
-                // Show features based on role
-                if (users[username].role === 'master') {
-                    // Master: Full access
-                    document.getElementById('warehouseSelector').style.display = 'block';
-                    document.getElementById('usersTab').style.display = 'block';
-                    document.getElementById('approvalsTab').style.display = 'block';
-                    // Reload users list UI (users data already loaded above)
-                    loadUsers();
-                    // Filter warehouse options based on user's warehouse access
-                    filterWarehouseOptions('warehouseSelect');
-                    filterWarehouseOptions('budgetWarehouse');
-                    filterApprovalFilterButtons();
-                    // Remove 'all' option if it exists and set default to first accessible warehouse
-                    const warehouseSelect = document.getElementById('warehouseSelect');
-                    const allOption = warehouseSelect.querySelector('option[value="all"]');
-                    if (allOption) {
-                        allOption.remove();
-                    }
-                    const accessibleWarehouses = getUserAccessibleWarehouses();
-                    if (accessibleWarehouses.length > 0 && (!warehouseSelect.value || warehouseSelect.value === 'all')) {
-                        warehouseSelect.value = accessibleWarehouses[0];
-                        currentWarehouse = accessibleWarehouses[0];
-                    }
-                    // Master/admin: Approvals tab should show ALL pending by default (all warehouses)
-                    currentApprovalFilter = 'all';
-                } else if (users[username].role === 'approver') {
-                    // Approver: All access except user creation
-                    document.getElementById('warehouseSelector').style.display = 'block';
-                    document.getElementById('usersTab').style.display = 'none';
-                    document.getElementById('approvalsTab').style.display = 'block';
-                    // Filter warehouse options based on user's warehouse access
-                    filterWarehouseOptions('warehouseSelect');
-                    filterWarehouseOptions('budgetWarehouse');
-                    filterApprovalFilterButtons();
-                    
-                    // For 2nd level approver (K02815), set approval filter to 'all' to show all warehouses
-                    if (ENABLE_2ND_LEVEL_APPROVAL && username === SECOND_LEVEL_APPROVER_ID) {
-                        currentApprovalFilter = 'all';
-                        currentWarehouse = 'all';
-                        const warehouseSelect = document.getElementById('warehouseSelect');
-                        if (warehouseSelect) {
-                            warehouseSelect.value = 'all';
-                        }
-                    } else {
-                        // For other approvers, set warehouse selector to first accessible warehouse
-                        const accessibleWarehouses = getUserAccessibleWarehouses();
-                        if (accessibleWarehouses.length > 0) {
-                            document.getElementById('warehouseSelect').value = accessibleWarehouses[0];
-                            currentWarehouse = accessibleWarehouses[0];
-                        } else {
-                            // Fallback if no warehouses assigned
-                            document.getElementById('warehouseSelect').value = 'warehouse_1';
-                            currentWarehouse = 'warehouse_1';
-                        }
-                        // Remove 'all' option if it exists (for non-2nd-level approvers)
-                        const warehouseSelect = document.getElementById('warehouseSelect');
-                        const allOption = warehouseSelect.querySelector('option[value="all"]');
-                        if (allOption) {
-                            allOption.remove();
-                        }
-                    }
-                } else {
-                    // Warehouse: Entry only
-                    document.getElementById('warehouseSelector').style.display = 'none';
-                    document.getElementById('usersTab').style.display = 'none';
-                    document.getElementById('approvalsTab').style.display = 'none';
-                }
+                // Show features based on role (shared with real-time users sync)
+                applyRoleBasedUI(username);
+                if (users[username].role === 'master') loadUsers();
                 
                 // Show UI immediately, load data in background
                 // Load expenses and budgets asynchronously (don't block UI)
@@ -4783,7 +4785,7 @@
                 window.editWarehouseResolve(true);
             }
             
-            await customAlert(`✅ User updated successfully for ${users[username].name}!\n\nRole: ${newRole === 'approver' ? 'Approver' : 'User'}\nWarehouses: ${warehouseString || 'All'}\n\nNote: User must log out and log in again to see role/warehouse changes on their device.`);
+            await customAlert(`✅ User updated successfully for ${users[username].name}!\n\nRole: ${newRole === 'approver' ? 'Approver' : 'User'}\nWarehouses: ${warehouseString || 'All'}\n\nChanges will reflect automatically on the user's device (no need to log out).`);
             
             // Reload from Firebase so K02852 and others get updated data on their devices
             users = await getUsers(true);
