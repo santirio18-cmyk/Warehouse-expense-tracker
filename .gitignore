@@ -14,6 +14,7 @@ output.json
 
 # Local configuration
 local.properties
+.github-token
 
 # Firebase
 functions/node_modules/
