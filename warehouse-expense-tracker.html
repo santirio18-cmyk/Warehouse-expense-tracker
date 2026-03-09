@@ -4698,15 +4698,24 @@
             const user = users[username];
             const currentWarehouses = user.warehouse ? user.warehouse.split(',').map(w => w.trim()).filter(w => w) : [];
             
-            // Create modal for editing warehouses
+            // Create modal for editing warehouses and role
             const modalHTML = `
                 <div style="padding: 20px;">
-                    <h3 style="margin-top: 0;">✏️ Edit Warehouses for ${user.name}</h3>
+                    <h3 style="margin-top: 0;">✏️ Edit User: ${user.name}</h3>
                     <p style="color: #666; margin-bottom: 15px;">
                         <strong>Employee Code:</strong> ${username}<br>
-                        <strong>Role:</strong> ${user.role.toUpperCase()}<br>
                         <strong>Current Warehouses:</strong> ${currentWarehouses.length > 0 ? currentWarehouses.map(w => getWarehouseName(w)).join(', ') : 'All Warehouses'}
                     </p>
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label for="editRoleSelect" style="display: block; margin-bottom: 8px; font-weight: 600;">Role</label>
+                        <select id="editRoleSelect" style="width: 100%; padding: 10px; border: 2px solid #667eea; border-radius: 8px; font-size: 14px; background: white;">
+                            <option value="warehouse" ${user.role === 'warehouse' ? 'selected' : ''}>User (Warehouse Entry)</option>
+                            <option value="approver" ${user.role === 'approver' ? 'selected' : ''}>Approver</option>
+                        </select>
+                        <small style="color: #6c757d; font-size: 12px; display: block; margin-top: 5px;">
+                            Approver = can approve expenses. User = entry only. User must log out and log in again to see role change.
+                        </small>
+                    </div>
                     <div class="form-group">
                         <label for="editWarehouseSelect" style="display: block; margin-bottom: 8px; font-weight: 600;">Select Warehouses (Hold Ctrl/Cmd to select multiple)</label>
                         <select id="editWarehouseSelect" multiple size="10" style="width: 100%; min-height: 200px; padding: 10px; border: 2px solid #667eea; border-radius: 8px; font-size: 14px; background: white;">
@@ -4731,7 +4740,7 @@
             // Show modal and wait for user action
             return new Promise((resolve) => {
                 window.editWarehouseResolve = resolve;
-                showCustomModal('Edit User Warehouses', modalHTML);
+                showCustomModal('Edit User (Role & Warehouses)', modalHTML);
                 
                 // Ensure dropdown is clickable after modal is shown
                 setTimeout(() => {
@@ -4750,17 +4759,20 @@
         
         async function saveUserWarehouses(username) {
             const warehouseSelect = document.getElementById('editWarehouseSelect');
+            const roleSelect = document.getElementById('editRoleSelect');
             const selectedWarehouses = Array.from(warehouseSelect.selectedOptions).map(option => option.value);
             const warehouseString = selectedWarehouses.length > 0 ? selectedWarehouses.join(',') : '';
+            const newRole = roleSelect ? roleSelect.value : users[username].role;
             
             // Validate warehouse requirement for warehouse role
-            if (users[username].role === 'warehouse' && selectedWarehouses.length === 0) {
+            if (newRole === 'warehouse' && selectedWarehouses.length === 0) {
                 await customAlert('❌ At least one warehouse is required for warehouse entry users!');
                 return;
             }
             
-            // Update user's warehouses
+            // Update user's warehouses and role
             users[username].warehouse = warehouseString;
+            users[username].role = newRole;
             
             // Save to database
             await saveUser(username, users[username]);
@@ -4771,7 +4783,7 @@
                 window.editWarehouseResolve(true);
             }
             
-            await customAlert(`✅ Warehouses updated successfully for ${users[username].name}!\n\nNote: User may need to refresh the page or log in again to see the update on their device.`);
+            await customAlert(`✅ User updated successfully for ${users[username].name}!\n\nRole: ${newRole === 'approver' ? 'Approver' : 'User'}\nWarehouses: ${warehouseString || 'All'}\n\nNote: User must log out and log in again to see role/warehouse changes on their device.`);
             
             // Reload from Firebase so K02852 and others get updated data on their devices
             users = await getUsers(true);
