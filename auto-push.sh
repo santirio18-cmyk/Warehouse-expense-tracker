@@ -26,8 +26,9 @@ if [ -n "$(git status --porcelain)" ]; then
     git commit -m "$MSG"
 fi
 
-# Push using token (no prompt)
+# Push using credential helper (avoids URL encoding issues)
 echo "📤 Pushing to GitHub..."
-git push https://santirio18-cmyk:${TOKEN}@github.com/santirio18-cmyk/Warehouse-expense-tracker.git main
+printf "protocol=https\nhost=github.com\nusername=santirio18-cmyk\npassword=%s\n" "$TOKEN" | git credential approve
+git push origin main
 
 echo "✅ Done! GitHub Pages will rebuild in 2-3 minutes."
