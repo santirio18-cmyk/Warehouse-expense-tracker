@@ -1686,13 +1686,11 @@
             });
         }
         
-        // Initialize Firebase early so it's ready when user logs in
+        // Initialize Firebase immediately on page load so login doesn't wait
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
-                setTimeout(initializeFirebase, 200); // Short delay - ready for login
-            });
+            document.addEventListener('DOMContentLoaded', () => initializeFirebase());
         } else {
-            setTimeout(initializeFirebase, 200);
+            initializeFirebase();
         }
         
         // ============================================
@@ -3071,6 +3069,46 @@
             if (el('approvals')?.classList.contains('active')) debouncedDisplayApprovals();
         }
 
+        // Show app UI after successful login (fast path)
+        function completeLogin(username) {
+            currentUser = username;
+            currentWarehouse = users[username].warehouse || null;
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+            applyRoleBasedUI(username);
+            if (users[username].role === 'master') loadUsers();
+            Promise.all([
+                getExpenses().then(data => { expenses = data; }),
+                getBudgets().then(data => { budgets = data; })
+            ]).then(() => {
+                displayExpenses();
+                updateSummary();
+            }).catch(error => {
+                console.error('Error loading data:', error);
+                displayExpenses();
+                updateSummary();
+            });
+        }
+
+        // Sync users from Firebase in background after login (does not block UI)
+        async function syncUsersFromFirebase(username, password) {
+            if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY_HERE") return;
+            try {
+                await initializeFirebase();
+                const freshUsers = await getUsers(true);
+                users = freshUsers;
+                if (!users[username] || users[username].password !== password) {
+                    logout();
+                    await customAlert('Your account was updated. Please log in again.');
+                    return;
+                }
+                applyRoleBasedUI(username);
+                if (users[username].role === 'master') loadUsers();
+            } catch (error) {
+                console.error('Background user sync failed:', error);
+            }
+        }
+
         // Login functionality
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -3078,34 +3116,29 @@
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
             
-            // Show loading state
             const loginButton = e.target.querySelector('button[type="submit"]');
             const originalButtonText = loginButton.textContent;
             loginButton.disabled = true;
             loginButton.textContent = 'Logging in...';
             
             try {
-                // Always fetch users from Firebase on login - one source of truth, works for all users
+                // Fast path: validate from local cache first (instant login)
+                users = getUsersLocalStorage(false);
+                
+                if (users[username] && users[username].password === password) {
+                    completeLogin(username);
+                    loginButton.disabled = false;
+                    loginButton.textContent = originalButtonText;
+                    syncUsersFromFirebase(username, password);
+                    return;
+                }
+                
+                // Slow path: user not in cache or wrong password — check Firebase
+                loginButton.textContent = 'Connecting...';
                 if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
                     await initializeFirebase();
                 }
                 users = await getUsers(true);
-                console.log('Users loaded:', Object.keys(users).length, 'users');
-                
-                if (!users['admin']) {
-                    const adminData = { password: 'admin123', role: 'master', name: 'Master Admin' };
-                    await saveUser('admin', adminData);
-                    users['admin'] = adminData;
-                }
-                if (!users['K02815']) {
-                    try {
-                        await saveUser('K02815', {
-                            password: 'K02815@123', role: 'approver', name: 'Dhanalakshmi',
-                            employeeCode: 'K02815', email: 'dhanalakshmi.dhanapal@tvs.in', warehouse: ''
-                        });
-                        users['K02815'] = { password: 'K02815@123', role: 'approver', name: 'Dhanalakshmi', employeeCode: 'K02815', email: 'dhanalakshmi.dhanapal@tvs.in', warehouse: '' };
-                    } catch (err) { console.error('Error creating K02815:', err); }
-                }
                 
                 if (!users[username]) {
                     const availableUsers = Object.keys(users).join(', ');
@@ -3122,33 +3155,7 @@
                     return;
                 }
                 
-                // Login successful - show UI immediately
-                currentUser = username;
-                currentWarehouse = users[username].warehouse || null;
-                
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('mainApp').style.display = 'block';
-                
-                // Show features based on role (shared with real-time users sync)
-                applyRoleBasedUI(username);
-                if (users[username].role === 'master') loadUsers();
-                
-                // Show UI immediately, load data in background
-                // Load expenses and budgets asynchronously (don't block UI)
-                Promise.all([
-                    getExpenses().then(data => { expenses = data; }),
-                    getBudgets().then(data => { budgets = data; })
-                ]).then(() => {
-                    displayExpenses();
-                    updateSummary();
-                }).catch(error => {
-                    console.error('Error loading data:', error);
-                    // Still show UI even if data loading fails
-                    displayExpenses();
-                    updateSummary();
-                });
-                
-                // Restore button state
+                completeLogin(username);
                 loginButton.disabled = false;
                 loginButton.textContent = originalButtonText;
             } catch (error) {
