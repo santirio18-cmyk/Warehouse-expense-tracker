@@ -1652,8 +1652,57 @@
             return firebaseInitPromise;
         }
         
+        let firebaseListenersAttached = false;
+
+        function parseExpenseDoc(data, id) {
+            if (data.invoiceFileName || data.invoiceFileData) {
+                data.invoiceFile = {
+                    filename: data.invoiceFileName || null,
+                    type: data.invoiceFileType || null,
+                    size: data.invoiceFileSize || null,
+                    data: data.invoiceFileData || null,
+                    tooLarge: data.invoiceFileTooLarge || false
+                };
+                delete data.invoiceFileName;
+                delete data.invoiceFileType;
+                delete data.invoiceFileSize;
+                delete data.invoiceFileData;
+                delete data.invoiceFileTooLarge;
+            }
+            return { id: id || data.id, ...data };
+        }
+
+        function sortExpensesByDate(list) {
+            return list.slice().sort((a, b) => {
+                const da = a.date || a.createdAt || '';
+                const db = b.date || b.createdAt || '';
+                return db.localeCompare(da);
+            });
+        }
+
+        function cacheExpensesLite(data) {
+            try {
+                const lite = data.map(e => {
+                    const c = { ...e };
+                    if (c.invoiceFile?.data) c.invoiceFile = { ...c.invoiceFile, data: null };
+                    return c;
+                });
+                localStorage.setItem('warehouseExpenses', JSON.stringify(lite));
+            } catch (e) { /* quota */ }
+        }
+
+        async function fetchExpensesFromFirestore() {
+            // No orderBy — Firestore excludes docs missing 'date' field; that hid expenses from approvals
+            const snapshot = await db.collection('expenses').get();
+            const data = sortExpensesByDate(snapshot.docs.map(doc => parseExpenseDoc(doc.data(), doc.id)));
+            cacheExpensesLite(data);
+            return data;
+        }
+
         function setupFirebaseListener() {
             if (!useFirebase || !db) return;
+            if (firebaseListenersAttached) return;
+            firebaseListenersAttached = true;
             
             // Real-time users sync: admin changes (new user, role, warehouses) reflect on all devices automatically
             db.collection('users').onSnapshot(snapshot => {
@@ -1670,27 +1719,9 @@
                 }
             }, err => console.error('Users sync error:', err));
             
-            db.collection('expenses').orderBy('date', 'desc').onSnapshot(snapshot => {
-                expenses = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    // Reconstruct invoiceFile from flattened fields
-                    if (data.invoiceFileName || data.invoiceFileData) {
-                        data.invoiceFile = {
-                            filename: data.invoiceFileName || null,
-                            type: data.invoiceFileType || null,
-                            size: data.invoiceFileSize || null,
-                            data: data.invoiceFileData || null,
-                            tooLarge: data.invoiceFileTooLarge || false
-                        };
-                        // Remove flattened fields
-                        delete data.invoiceFileName;
-                        delete data.invoiceFileType;
-                        delete data.invoiceFileSize;
-                        delete data.invoiceFileData;
-                        delete data.invoiceFileTooLarge;
-                    }
-                    return { id: doc.id, ...data };
-                });
+            db.collection('expenses').onSnapshot(snapshot => {
+                expenses = sortExpensesByDate(snapshot.docs.map(doc => parseExpenseDoc(doc.data(), doc.id)));
+                cacheExpensesLite(expenses);
                 if (currentUser) {
                     debouncedDisplayExpenses();
                     debouncedUpdateSummary();
@@ -1698,7 +1729,12 @@
                 }
             }, err => {
                 console.error('Expenses sync error:', err);
-                if (currentUser) displayApprovals();
+                fetchExpensesFromFirestore().then(data => {
+                    expenses = data;
+                    if (currentUser) displayApprovals();
+                }).catch(() => {
+                    if (currentUser) displayApprovals();
+                });
             });
         }
         
@@ -2099,38 +2135,7 @@
         async function getExpenses() {
             if (useFirebase && db) {
                 try {
-                    const snapshot = await withTimeout(
-                        db.collection('expenses').orderBy('date', 'desc').get(),
-                        20000,
-                        'Loading expenses'
-                    );
-                    const data = snapshot.docs.map(doc => {
-                        const d = doc.data();
-                        if (d.invoiceFileName || d.invoiceFileData) {
-                            d.invoiceFile = {
-                                filename: d.invoiceFileName || null,
-                                type: d.invoiceFileType || null,
-                                size: d.invoiceFileSize || null,
-                                data: d.invoiceFileData || null,
-                                tooLarge: d.invoiceFileTooLarge || false
-                            };
-                            delete d.invoiceFileName;
-                            delete d.invoiceFileType;
-                            delete d.invoiceFileSize;
-                            delete d.invoiceFileData;
-                            delete d.invoiceFileTooLarge;
-                        }
-                        return { id: doc.id, ...d };
-                    });
-                    try {
-                        const lite = data.map(e => {
-                            const c = { ...e };
-                            if (c.invoiceFile?.data) c.invoiceFile = { ...c.invoiceFile, data: null };
-                            return c;
-                        });
-                        localStorage.setItem('warehouseExpenses', JSON.stringify(lite));
-                    } catch (e) { /* quota - skip cache */ }
-                    return data;
+                    return await fetchExpensesFromFirestore();
                 } catch (error) {
                     console.error('Error loading expenses from Firebase:', error);
                     return getExpensesLocalStorage();
@@ -2580,6 +2585,7 @@
         
         // Load initial data
         (async function initializeData() {
+            await initializeFirebase().catch(() => {});
             users = await getUsers();
             expenses = await getExpenses();
             budgets = await getBudgets();
@@ -3098,8 +3104,12 @@
 
         // Load expenses/budgets from Firebase (with localStorage fallback)
         let appDataLoading = false;
+        let appDataLoadQueued = false;
         async function loadAppData() {
-            if (appDataLoading) return;
+            if (appDataLoading) {
+                appDataLoadQueued = true;
+                return;
+            }
             appDataLoading = true;
             try {
                 await withTimeout(initializeFirebase(), 25000, 'Connecting to server');
@@ -3121,6 +3131,10 @@
                 displayExpenses();
                 updateSummary();
                 displayApprovals();
+                if (appDataLoadQueued) {
+                    appDataLoadQueued = false;
+                    loadAppData();
+                }
             }
         }
 
@@ -5116,7 +5130,13 @@
                 return expensesToShow.filter(e => normalizeWarehouseId(e.warehouse) === fw);
             }
 
-            // "All Pending" = all warehouses this user can approve (ignore top warehouse dropdown)
+            // Master with all-warehouse access — no filter when All Pending
+            if (user.role === 'master' && (!user.warehouse || user.warehouse.trim() === '')) {
+                if (!currentApprovalFilter || currentApprovalFilter === 'all') return expensesToShow;
+                const fw = normalizeWarehouseId(currentApprovalFilter);
+                return expensesToShow.filter(e => normalizeWarehouseId(e.warehouse) === fw);
+            }
+
             if (!currentApprovalFilter || currentApprovalFilter === 'all') {
                 return expensesToShow.filter(e => hasWarehouseAccess(user, e.warehouse));
             }
@@ -5125,6 +5145,23 @@
             return expensesToShow.filter(e =>
                 hasWarehouseAccess(user, e.warehouse) && normalizeWarehouseId(e.warehouse) === fw
             );
+        }
+
+        function getExpensesForApprovalQueue() {
+            const role = users[currentUser]?.role;
+            if (ENABLE_3RD_LEVEL_APPROVAL && currentUser === THIRD_LEVEL_APPROVER_ID) {
+                return expenses.filter(e => e.status === 'second_approved');
+            }
+            if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
+                return expenses.filter(e => e.status === 'first_approved');
+            }
+            if (role === 'master') {
+                // Admin sees 1st-level pending AND 2nd-level pending (full pipeline)
+                return expenses.filter(e =>
+                    !e.status || e.status === '' || e.status === 'pending' || e.status === 'first_approved'
+                );
+            }
+            return expenses.filter(e => !e.status || e.status === '' || e.status === 'pending');
         }
 
         function displayApprovals() {
@@ -5136,22 +5173,7 @@
             }
 
             try {
-            // Determine which expenses to show based on user role and approval levels
-            let expensesToShow = [];
-            
-            if (ENABLE_3RD_LEVEL_APPROVAL && currentUser === THIRD_LEVEL_APPROVER_ID) {
-                // 3rd level approver sees expenses that are second_approved
-                expensesToShow = expenses.filter(expense => expense.status === 'second_approved');
-            } else if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
-                // 2nd level approver sees expenses that are first_approved
-                const allFirstApproved = expenses.filter(expense => expense.status === 'first_approved');
-                console.log(`[2nd Level Approver] Total expenses: ${expenses.length}, First approved: ${allFirstApproved.length}`);
-                console.log(`[2nd Level Approver] Current approval filter: ${currentApprovalFilter}, Current warehouse: ${currentWarehouse}`);
-                expensesToShow = allFirstApproved;
-            } else {
-                // First level approvers (including admin/master) see expenses that are pending (or have no status, which defaults to pending)
-                expensesToShow = expenses.filter(expense => expense.status === 'pending' || !expense.status || expense.status === '');
-            }
+            let expensesToShow = getExpensesForApprovalQueue();
             
             // Debug logging
             console.log(`[displayApprovals] Current user: ${currentUser}, Role: ${users[currentUser]?.role}`);
@@ -5302,7 +5324,9 @@
                         </div>
                     ` : ''}
                     <div class="approval-actions">
-                        ${ENABLE_3RD_LEVEL_APPROVAL && currentUser === THIRD_LEVEL_APPROVER_ID && expense.status === 'second_approved' ? `
+                        ${expense.status === 'first_approved' && users[currentUser]?.role === 'master' ? `
+                            <span style="color:#1976d2;font-weight:600;">⏳ Awaiting 2nd level approval (K02815)</span>
+                        ` : ENABLE_3RD_LEVEL_APPROVAL && currentUser === THIRD_LEVEL_APPROVER_ID && expense.status === 'second_approved' ? `
                             <button class="approval-btn approve-btn" onclick="approveExpense('${expense.id}')">✅ Final Approve</button>
                             <button class="approval-btn reject-btn" onclick="rejectExpense('${expense.id}')">❌ Reject</button>
                         ` : ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID && expense.status === 'first_approved' ? `
