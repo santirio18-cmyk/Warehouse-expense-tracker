@@ -1638,6 +1638,12 @@
                         firebase.initializeApp(firebaseConfig);
                     }
                     db = firebase.firestore();
+                    try {
+                        await db.enablePersistence({ synchronizeTabs: true });
+                        console.log('✅ Firestore offline cache enabled');
+                    } catch (pe) {
+                        console.warn('Firestore persistence:', pe.code || pe.message);
+                    }
                     useFirebase = true;
                     console.log('✅ Firebase initialized successfully');
                     setupFirebaseListener();
@@ -1653,6 +1659,23 @@
         }
         
         let firebaseListenersAttached = false;
+        let lastDataLoadError = null;
+        let expensesSnapshotReceived = false;
+
+        function formatFirebaseError(err) {
+            const msg = String(err?.message || err || '');
+            const code = String(err?.code || '');
+            if (code === 'resource-exhausted' || msg.includes('Quota') || msg.includes('quota')) {
+                return 'Firebase daily read limit reached. Data will load from cache. Upgrade to Blaze plan in Firebase Console, or try again after midnight Pacific time.';
+            }
+            if (code === 'permission-denied') {
+                return 'Firestore access denied. Check Firestore Rules in Firebase Console (expenses collection needs read access).';
+            }
+            if (code === 'unavailable' || msg.includes('timed out')) {
+                return 'Cannot reach Firebase server. Try mobile data instead of office WiFi.';
+            }
+            return msg || 'Could not load data from server';
+        }
 
         function parseExpenseDoc(data, id) {
             if (data.invoiceFileName || data.invoiceFileData) {
@@ -1692,11 +1715,20 @@
         }
 
         async function fetchExpensesFromFirestore() {
-            // No orderBy — Firestore excludes docs missing 'date' field; that hid expenses from approvals
             const snapshot = await db.collection('expenses').get();
             const data = sortExpensesByDate(snapshot.docs.map(doc => parseExpenseDoc(doc.data(), doc.id)));
             cacheExpensesLite(data);
+            lastDataLoadError = null;
             return data;
+        }
+
+        function loadExpensesFromCache() {
+            const cached = getExpensesLocalStorage();
+            if (cached.length > 0) {
+                expenses = cached;
+                return true;
+            }
+            return false;
         }
 
         function setupFirebaseListener() {
@@ -1720,8 +1752,10 @@
             }, err => console.error('Users sync error:', err));
             
             db.collection('expenses').onSnapshot(snapshot => {
+                expensesSnapshotReceived = true;
                 expenses = sortExpensesByDate(snapshot.docs.map(doc => parseExpenseDoc(doc.data(), doc.id)));
                 cacheExpensesLite(expenses);
+                lastDataLoadError = null;
                 if (currentUser) {
                     debouncedDisplayExpenses();
                     debouncedUpdateSummary();
@@ -1729,12 +1763,12 @@
                 }
             }, err => {
                 console.error('Expenses sync error:', err);
-                fetchExpensesFromFirestore().then(data => {
-                    expenses = data;
-                    if (currentUser) displayApprovals();
-                }).catch(() => {
-                    if (currentUser) displayApprovals();
-                });
+                lastDataLoadError = formatFirebaseError(err);
+                loadExpensesFromCache();
+                if (currentUser) {
+                    displayExpenses();
+                    displayApprovals();
+                }
             });
         }
         
@@ -2138,7 +2172,9 @@
                     return await fetchExpensesFromFirestore();
                 } catch (error) {
                     console.error('Error loading expenses from Firebase:', error);
-                    return getExpensesLocalStorage();
+                    lastDataLoadError = formatFirebaseError(error);
+                    const cached = getExpensesLocalStorage();
+                    return cached;
                 }
             } else {
                 return getExpensesLocalStorage();
@@ -3111,20 +3147,41 @@
                 return;
             }
             appDataLoading = true;
+            // Show cached data immediately while server loads
+            loadExpensesFromCache();
+            displayExpenses();
+            displayApprovals();
             try {
-                await withTimeout(initializeFirebase(), 25000, 'Connecting to server');
-                const [expData, budgetData] = await Promise.all([
-                    getExpenses(),
-                    getBudgets()
-                ]);
-                expenses = expData;
-                budgets = budgetData;
+                await withTimeout(initializeFirebase(), 30000, 'Connecting to server');
+                // Wait briefly for real-time listener (avoids duplicate Firestore read)
+                await new Promise(resolve => {
+                    if (expensesSnapshotReceived && expenses.length > 0) {
+                        resolve();
+                        return;
+                    }
+                    let waited = 0;
+                    const iv = setInterval(() => {
+                        waited += 500;
+                        if (expensesSnapshotReceived || waited >= 8000) {
+                            clearInterval(iv);
+                            resolve();
+                        }
+                    }, 500);
+                });
+                if (expenses.length === 0) {
+                    const [expData, budgetData] = await Promise.all([getExpenses(), getBudgets()]);
+                    expenses = expData;
+                    budgets = budgetData;
+                } else {
+                    budgets = await getBudgets();
+                }
             } catch (error) {
                 console.error('Error loading app data:', error);
-                expenses = getExpensesLocalStorage();
+                lastDataLoadError = formatFirebaseError(error);
+                loadExpensesFromCache();
                 budgets = getBudgetsLocalStorage();
                 if (currentUser && (users[currentUser]?.role === 'approver' || users[currentUser]?.role === 'master')) {
-                    showToast('warning', 'Connection', error.message || 'Could not reach server. Showing cached data.');
+                    showToast('warning', 'Server issue', lastDataLoadError);
                 }
             } finally {
                 appDataLoading = false;
@@ -5201,18 +5258,18 @@
                     message = 'No expenses pending 2nd level approval';
                 }
                 const hint = expenses.length === 0
-                    ? 'No expenses loaded. Check internet and tap Retry.'
+                    ? (lastDataLoadError || 'No expenses loaded. Firebase may be blocked or daily limit reached.')
                     : (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID && firstApprovedCount > 0)
-                    ? `${firstApprovedCount} at 2nd level — you may be viewing wrong filter.`
+                    ? `${firstApprovedCount} at 2nd level — check All Pending filter.`
                     : pendingCount > 0
-                    ? `${pendingCount} pending in system but not in your warehouses. Check warehouse assignment.`
+                    ? `${pendingCount} pending in system but not in your warehouses. Check warehouse assignment in Users tab.`
                     : 'All expenses have been reviewed!';
                 approvalsList.innerHTML = `
                     <div class="empty-state">
-                        <div style="font-size: 4rem; margin-bottom: 20px;">✅</div>
+                        <div style="font-size: 4rem; margin-bottom: 20px;">${expenses.length === 0 ? '⚠️' : '✅'}</div>
                         <h3>${message}</h3>
-                        <p>${hint}</p>
-                        ${expenses.length === 0 ? '<button class="btn" onclick="loadAppData()" style="margin-top:12px;background:#667eea;color:white;">🔄 Retry</button>' : ''}
+                        <p style="max-width:480px;margin:0 auto;line-height:1.5;">${hint}</p>
+                        <button class="btn" onclick="loadAppData()" style="margin-top:12px;background:#667eea;color:white;">🔄 Retry</button>
                     </div>
                 `;
                 return;
