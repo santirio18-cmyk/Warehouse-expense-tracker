@@ -2122,7 +2122,14 @@
                         }
                         return { id: doc.id, ...d };
                     });
-                    localStorage.setItem('warehouseExpenses', JSON.stringify(data));
+                    try {
+                        const lite = data.map(e => {
+                            const c = { ...e };
+                            if (c.invoiceFile?.data) c.invoiceFile = { ...c.invoiceFile, data: null };
+                            return c;
+                        });
+                        localStorage.setItem('warehouseExpenses', JSON.stringify(lite));
+                    } catch (e) { /* quota - skip cache */ }
                     return data;
                 } catch (error) {
                     console.error('Error loading expenses from Firebase:', error);
@@ -5098,6 +5105,28 @@
             };
         }
         
+        // Filter approval list by warehouse access and selected filter button
+        function filterApprovalsByWarehouse(expensesToShow) {
+            const user = users[currentUser];
+            if (!user) return expensesToShow;
+
+            if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
+                if (!currentApprovalFilter || currentApprovalFilter === 'all') return expensesToShow;
+                const fw = normalizeWarehouseId(currentApprovalFilter);
+                return expensesToShow.filter(e => normalizeWarehouseId(e.warehouse) === fw);
+            }
+
+            // "All Pending" = all warehouses this user can approve (ignore top warehouse dropdown)
+            if (!currentApprovalFilter || currentApprovalFilter === 'all') {
+                return expensesToShow.filter(e => hasWarehouseAccess(user, e.warehouse));
+            }
+
+            const fw = normalizeWarehouseId(currentApprovalFilter);
+            return expensesToShow.filter(e =>
+                hasWarehouseAccess(user, e.warehouse) && normalizeWarehouseId(e.warehouse) === fw
+            );
+        }
+
         function displayApprovals() {
             const approvalsList = document.getElementById('approvalsList');
             if (!approvalsList) return;
@@ -5134,139 +5163,34 @@
                 approved: expenses.filter(e => e.status === 'approved').length,
                 rejected: expenses.filter(e => e.status === 'rejected').length
             });
-            
-            // Get user's accessible warehouses
-            const accessibleWarehouses = getUserAccessibleWarehouses();
-            
-            // Third-level approver always sees all warehouses - no filtering needed
-            if (ENABLE_3RD_LEVEL_APPROVAL && currentUser === THIRD_LEVEL_APPROVER_ID) {
-                // Only filter by warehouse selector if a specific warehouse is selected
-                if (currentApprovalFilter && currentApprovalFilter !== 'all') {
-                    expensesToShow = expensesToShow.filter(expense => {
-                        const expenseWarehouse = String(expense.warehouse || '').trim();
-                        const filterWarehouse = String(currentApprovalFilter || '').trim();
-                        return expenseWarehouse === filterWarehouse;
-                    });
-                }
-                // If 'all' is selected or no filter, show all warehouses (no additional filtering)
-            } else if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
-                // 2nd level approver sees ALL first_approved expenses from ALL warehouses
-                // Only filter by warehouse selector if a specific warehouse filter button is clicked
-                if (currentApprovalFilter && currentApprovalFilter !== 'all' && currentApprovalFilter.startsWith('warehouse_')) {
-                    expensesToShow = expensesToShow.filter(expense => {
-                        const expenseWarehouse = String(expense.warehouse || '').trim();
-                        const filterWarehouse = String(currentApprovalFilter || '').trim();
-                        return expenseWarehouse === filterWarehouse;
-                    });
-                }
-                // If 'all' is selected or no filter, show all warehouses (no additional filtering)
-                // Note: currentWarehouse selector should NOT filter approvals for 2nd level approver
-            } else if (users[currentUser].role === 'approver' && users[currentUser].warehouse && users[currentUser].warehouse !== '') {
-                // Approver with warehouse mapping: filter by approval filter or warehouse selector first
-                if (currentApprovalFilter && currentApprovalFilter !== 'all') {
-                    // Filter by approval filter button if set
-                    const userWarehouses = users[currentUser].warehouse.split(',');
-                    if (userWarehouses.includes(currentApprovalFilter)) {
-                        expensesToShow = expensesToShow.filter(expense => {
-                            const expenseWarehouse = String(expense.warehouse || '').trim();
-                            const filterWarehouse = String(currentApprovalFilter || '').trim();
-                            return expenseWarehouse === filterWarehouse;
-                        });
-                    } else {
-                        expensesToShow = [];
-                    }
-                } else if (currentWarehouse && currentWarehouse !== 'all') {
-                    // Filter by warehouse selector if approval filter is 'all'
-                    const userWarehouses = users[currentUser].warehouse.split(',');
-                    if (userWarehouses.includes(currentWarehouse)) {
-                        expensesToShow = expensesToShow.filter(expense => {
-                            const expenseWarehouse = String(expense.warehouse || '').trim();
-                            const filterWarehouse = String(currentWarehouse || '').trim();
-                            return expenseWarehouse === filterWarehouse;
-                        });
-                    } else {
-                        expensesToShow = [];
-                    }
-                } else {
-                    // Show all assigned warehouses if no filter is set
-                    const userWarehouses = users[currentUser].warehouse.split(',').map(w => normalizeWarehouseId(w.trim())).filter(w => w);
-                    expensesToShow = expensesToShow.filter(expense => userWarehouses.includes(normalizeWarehouseId(expense.warehouse)));
-                }
-            } else if (users[currentUser].role === 'master' && users[currentUser].warehouse && users[currentUser].warehouse !== '') {
-                // Master with warehouse restrictions: only see accessible warehouses
-                if (currentApprovalFilter && currentApprovalFilter !== 'all') {
-                    if (hasWarehouseAccess(users[currentUser], currentApprovalFilter)) {
-                        expensesToShow = expensesToShow.filter(expense => {
-                            const expenseWarehouse = String(expense.warehouse || '');
-                            const filterWarehouse = String(currentApprovalFilter || '');
-                            return expenseWarehouse === filterWarehouse;
-                        });
-                    } else {
-                        expensesToShow = [];
-                    }
-                } else {
-                    // Show all accessible warehouses
-                    expensesToShow = expensesToShow.filter(expense => 
-                        accessibleWarehouses.includes(expense.warehouse)
-                    );
-                }
-            } else if (currentApprovalFilter && currentApprovalFilter !== 'all') {
-                // Filter by approval filter button (only if a specific warehouse is selected)
-                if (users[currentUser].role === 'approver' && !hasWarehouseAccess(users[currentUser], currentApprovalFilter)) {
-                    expensesToShow = [];
-                } else {
-                    // Strict string comparison to ensure exact warehouse match (prevents warehouse_1 matching warehouse_11)
-                    expensesToShow = expensesToShow.filter(expense => {
-                        const expenseWarehouse = String(expense.warehouse || '').trim();
-                        const filterWarehouse = String(currentApprovalFilter || '').trim();
-                        const matches = expenseWarehouse === filterWarehouse;
-                        if (!matches && (expenseWarehouse === 'warehouse_7' || expenseWarehouse === 'warehouse_13')) {
-                            console.log(`[Filter Debug] Expense ${expense.id} from ${expenseWarehouse} (${getWarehouseName(expenseWarehouse)}) filtered out by filter ${filterWarehouse}`);
-                        }
-                        return matches;
-                    });
-                }
-            } else if (currentWarehouse && currentWarehouse !== 'all') {
-                // Warehouse selector is for expenses tab only — don't filter approvals when "All Pending" is selected
-                if (currentApprovalFilter === 'all' || !currentApprovalFilter) {
-                    // Show all accessible warehouses' pending approvals
-                    if (users[currentUser].role === 'approver' || users[currentUser].role === 'master') {
-                        expensesToShow = expensesToShow.filter(expense =>
-                            accessibleWarehouses.includes(expense.warehouse)
-                        );
-                    }
-                } else {
-                    expensesToShow = expensesToShow.filter(expense => {
-                        const expenseWarehouse = String(expense.warehouse || '').trim();
-                        const filterWarehouse = String(currentWarehouse || '').trim();
-                        return expenseWarehouse === filterWarehouse;
-                    });
-                }
-            } else if (users[currentUser].role === 'master' && users[currentUser].warehouse && users[currentUser].warehouse !== '') {
-                // Master with warehouse restrictions but 'all' filter: show only accessible warehouses
-                expensesToShow = expensesToShow.filter(expense => 
-                    accessibleWarehouses.includes(expense.warehouse)
-                );
-            }
-            // For master users with no warehouse restrictions and 'all' filter, show all pending expenses (no additional filtering)
+
+            expensesToShow = filterApprovalsByWarehouse(expensesToShow);
             
             console.log(`[displayApprovals] After warehouse filtering: ${expensesToShow.length} expenses`);
             console.log(`[displayApprovals] Current approval filter: ${currentApprovalFilter}, Current warehouse: ${currentWarehouse}`);
             
             if (expensesToShow.length === 0) {
+                const pendingCount = expenses.filter(e => e.status === 'pending' || !e.status).length;
+                const firstApprovedCount = expenses.filter(e => e.status === 'first_approved').length;
                 let message = 'No pending approvals';
                 if (ENABLE_3RD_LEVEL_APPROVAL && currentUser === THIRD_LEVEL_APPROVER_ID) {
                     message = 'No expenses pending final (3rd level) approval';
                 } else if (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) {
                     message = 'No expenses pending 2nd level approval';
-                } else {
-                    message = 'No pending approvals';
                 }
+                const hint = expenses.length === 0
+                    ? 'No expenses loaded. Check internet and tap Retry.'
+                    : (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID && firstApprovedCount > 0)
+                    ? `${firstApprovedCount} at 2nd level — you may be viewing wrong filter.`
+                    : pendingCount > 0
+                    ? `${pendingCount} pending in system but not in your warehouses. Check warehouse assignment.`
+                    : 'All expenses have been reviewed!';
                 approvalsList.innerHTML = `
                     <div class="empty-state">
                         <div style="font-size: 4rem; margin-bottom: 20px;">✅</div>
                         <h3>${message}</h3>
-                        <p>All expenses have been reviewed!</p>
+                        <p>${hint}</p>
+                        ${expenses.length === 0 ? '<button class="btn" onclick="loadAppData()" style="margin-top:12px;background:#667eea;color:white;">🔄 Retry</button>' : ''}
                     </div>
                 `;
                 return;
