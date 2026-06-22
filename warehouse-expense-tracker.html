@@ -1658,7 +1658,10 @@
             return firebaseInitPromise;
         }
         
-        let firebaseListenersAttached = false;
+        // FREE TIER MODE — keeps Firebase reads under 50,000/day (no payment needed)
+        const FREE_TIER_MODE = true;
+        const SERVER_SYNC_INTERVAL_MS = 15 * 60 * 1000; // sync from server max once per 15 min
+        let lastServerSync = 0;
         let lastDataLoadError = null;
         let expensesSnapshotReceived = false;
 
@@ -1735,8 +1738,13 @@
             if (!useFirebase || !db) return;
             if (firebaseListenersAttached) return;
             firebaseListenersAttached = true;
+
+            if (FREE_TIER_MODE) {
+                console.log('ℹ️ Free tier mode: live listeners off — saves Firebase reads. Tap Retry to refresh.');
+                return;
+            }
             
-            // Real-time users sync: admin changes (new user, role, warehouses) reflect on all devices automatically
+            // Real-time users sync (disabled in free tier — uses too many reads)
             db.collection('users').onSnapshot(snapshot => {
                 const firebaseUsers = {};
                 snapshot.forEach(doc => { firebaseUsers[doc.id] = doc.data(); });
@@ -1772,11 +1780,13 @@
             });
         }
         
-        // Initialize Firebase immediately on page load so login doesn't wait
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => initializeFirebase());
-        } else {
-            initializeFirebase();
+        // Firebase connects on login only (free tier — saves reads on every page visit)
+        if (!FREE_TIER_MODE) {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => initializeFirebase());
+            } else {
+                initializeFirebase();
+            }
         }
         
         // ============================================
@@ -2619,12 +2629,11 @@
             });
         }, 300);
         
-        // Load initial data
+        // Load initial data (cache only before login — saves Firebase reads)
         (async function initializeData() {
-            await initializeFirebase().catch(() => {});
-            users = await getUsers();
-            expenses = await getExpenses();
-            budgets = await getBudgets();
+            users = getUsersLocalStorage(false);
+            expenses = getExpensesLocalStorage();
+            budgets = getBudgetsLocalStorage();
             
             // Create user K02815 (Dhanalakshmi) - 2nd Level Approver if it doesn't exist
             if (!users['K02815']) {
@@ -3141,40 +3150,29 @@
         // Load expenses/budgets from Firebase (with localStorage fallback)
         let appDataLoading = false;
         let appDataLoadQueued = false;
-        async function loadAppData() {
+        async function loadAppData(forceRefresh = false) {
             if (appDataLoading) {
-                appDataLoadQueued = true;
+                appDataLoadQueued = forceRefresh;
                 return;
             }
             appDataLoading = true;
-            // Show cached data immediately while server loads
             loadExpensesFromCache();
             displayExpenses();
             displayApprovals();
+
+            const now = Date.now();
+            if (!forceRefresh && expenses.length > 0 && (now - lastServerSync) < SERVER_SYNC_INTERVAL_MS) {
+                appDataLoading = false;
+                return;
+            }
+
             try {
                 await withTimeout(initializeFirebase(), 30000, 'Connecting to server');
-                // Wait briefly for real-time listener (avoids duplicate Firestore read)
-                await new Promise(resolve => {
-                    if (expensesSnapshotReceived && expenses.length > 0) {
-                        resolve();
-                        return;
-                    }
-                    let waited = 0;
-                    const iv = setInterval(() => {
-                        waited += 500;
-                        if (expensesSnapshotReceived || waited >= 8000) {
-                            clearInterval(iv);
-                            resolve();
-                        }
-                    }, 500);
-                });
-                if (expenses.length === 0) {
-                    const [expData, budgetData] = await Promise.all([getExpenses(), getBudgets()]);
-                    expenses = expData;
-                    budgets = budgetData;
-                } else {
-                    budgets = await getBudgets();
-                }
+                const [expData, budgetData] = await Promise.all([getExpenses(), getBudgets()]);
+                expenses = expData;
+                budgets = budgetData;
+                lastServerSync = Date.now();
+                lastDataLoadError = null;
             } catch (error) {
                 console.error('Error loading app data:', error);
                 lastDataLoadError = formatFirebaseError(error);
@@ -3189,8 +3187,9 @@
                 updateSummary();
                 displayApprovals();
                 if (appDataLoadQueued) {
+                    const force = appDataLoadQueued === true;
                     appDataLoadQueued = false;
-                    loadAppData();
+                    loadAppData(force);
                 }
             }
         }
@@ -3212,9 +3211,10 @@
             loadAppData();
         }
 
-        // Sync users from Firebase in background after login (does not block UI)
+        // Sync users from Firebase once after login (free tier — no continuous listener)
         async function syncUsersFromFirebase(username, password) {
             if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY_HERE") return;
+            if (FREE_TIER_MODE) return; // already loaded on login via getUsers(true) slow path or cache
             try {
                 await initializeFirebase();
                 const freshUsers = await getUsers(true);
@@ -3345,7 +3345,7 @@
 
         // Tab switching with performance optimization
         let lastApprovalsLoad = 0;
-        const APPROVALS_CACHE_TIME = 5000; // 5 seconds cache
+        const APPROVALS_CACHE_TIME = FREE_TIER_MODE ? 900000 : 5000; // 15 min vs 5 sec
         
         function showTab(tabName) {
             // Immediate UI update for better responsiveness
@@ -3386,7 +3386,7 @@
                     if (approvalsList) {
                         approvalsList.innerHTML = '<div class="empty-state"><div style="font-size: 2rem; margin-bottom: 10px;">⏳</div><p>Loading approvals...</p></div>';
                     }
-                    loadAppData();
+                    loadAppData(true);
                 } else {
                     requestAnimationFrame(() => displayApprovals());
                 }
@@ -5269,7 +5269,7 @@
                         <div style="font-size: 4rem; margin-bottom: 20px;">${expenses.length === 0 ? '⚠️' : '✅'}</div>
                         <h3>${message}</h3>
                         <p style="max-width:480px;margin:0 auto;line-height:1.5;">${hint}</p>
-                        <button class="btn" onclick="loadAppData()" style="margin-top:12px;background:#667eea;color:white;">🔄 Retry</button>
+                        <button class="btn" onclick="loadAppData(true)" style="margin-top:12px;background:#667eea;color:white;">🔄 Retry / Refresh from server</button>
                     </div>
                 `;
                 return;
@@ -5406,7 +5406,7 @@
                     <div class="empty-state">
                         <h3>Could not load approvals</h3>
                         <p>${err.message || 'Please refresh the page or try again.'}</p>
-                        <button class="btn" onclick="loadAppData()" style="margin-top:12px;background:#667eea;color:white;">🔄 Retry</button>
+                        <button class="btn" onclick="loadAppData(true)" style="margin-top:12px;background:#667eea;color:white;">🔄 Retry / Refresh from server</button>
                     </div>`;
             }
         }
