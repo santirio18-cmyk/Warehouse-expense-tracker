@@ -7,12 +7,15 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
     <!-- Updated: Removed demo user info from login -->
     
-    <!-- Firebase SDK - Lazy loaded for better performance -->
+    <!-- Firebase SDK - loaded upfront so other laptops don't wait on login -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
     <script>
-        // Lazy load Firebase SDK only when needed
-        let firebaseLoaded = false;
+        let firebaseLoaded = true;
         async function loadFirebaseSDK() {
-            if (firebaseLoaded) return;
+            if (typeof firebase !== 'undefined') return;
+            firebaseLoaded = false;
             const scripts = [
                 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
                 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js',
@@ -1610,29 +1613,43 @@
         // Initialize Firebase (only if config is provided)
         let db = null;
         let useFirebase = false;
-        
-        // Lazy initialize Firebase only if configured
+        let firebaseInitPromise = null;
+
+        function withTimeout(promise, ms, label) {
+            return Promise.race([
+                promise,
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error((label || 'Request') + ' timed out. Check internet or try mobile data.')), ms)
+                )
+            ]);
+        }
+
         async function initializeFirebase() {
-            if (useFirebase || !firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY_HERE") {
-                return;
-            }
-            
-            try {
-                // Load Firebase SDK if not already loaded
-                if (typeof firebase === 'undefined') {
-                    await loadFirebaseSDK();
+            if (useFirebase && db) return;
+            if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY_HERE") return;
+            if (firebaseInitPromise) return firebaseInitPromise;
+
+            firebaseInitPromise = (async () => {
+                try {
+                    if (typeof firebase === 'undefined') {
+                        await loadFirebaseSDK();
+                    }
+                    if (!firebase.apps.length) {
+                        firebase.initializeApp(firebaseConfig);
+                    }
+                    db = firebase.firestore();
+                    useFirebase = true;
+                    console.log('✅ Firebase initialized successfully');
+                    setupFirebaseListener();
+                } catch (error) {
+                    console.error('❌ Firebase initialization error:', error);
+                    useFirebase = false;
+                    firebaseInitPromise = null;
+                    throw error;
                 }
-                
-                firebase.initializeApp(firebaseConfig);
-                db = firebase.firestore();
-                useFirebase = true;
-                console.log('✅ Firebase initialized successfully');
-                
-                setupFirebaseListener();
-            } catch (error) {
-                console.error('❌ Firebase initialization error:', error);
-                useFirebase = false;
-            }
+            })();
+
+            return firebaseInitPromise;
         }
         
         function setupFirebaseListener() {
@@ -1675,14 +1692,13 @@
                     return { id: doc.id, ...data };
                 });
                 if (currentUser) {
-                    // Use debounced functions to prevent excessive updates
                     debouncedDisplayExpenses();
                     debouncedUpdateSummary();
-                    // Refresh approvals if on approvals tab
-                    if (document.getElementById('approvals') && document.getElementById('approvals').classList.contains('active')) {
-                        debouncedDisplayApprovals();
-                    }
+                    debouncedDisplayApprovals();
                 }
+            }, err => {
+                console.error('Expenses sync error:', err);
+                if (currentUser) displayApprovals();
             });
         }
         
@@ -2083,27 +2099,31 @@
         async function getExpenses() {
             if (useFirebase && db) {
                 try {
-                    const snapshot = await db.collection('expenses').orderBy('date', 'desc').get();
-                    return snapshot.docs.map(doc => {
-                        const data = doc.data();
-                        // Reconstruct invoiceFile from flattened fields
-                        if (data.invoiceFileName || data.invoiceFileData) {
-                            data.invoiceFile = {
-                                filename: data.invoiceFileName || null,
-                                type: data.invoiceFileType || null,
-                                size: data.invoiceFileSize || null,
-                                data: data.invoiceFileData || null,
-                                tooLarge: data.invoiceFileTooLarge || false
+                    const snapshot = await withTimeout(
+                        db.collection('expenses').orderBy('date', 'desc').get(),
+                        20000,
+                        'Loading expenses'
+                    );
+                    const data = snapshot.docs.map(doc => {
+                        const d = doc.data();
+                        if (d.invoiceFileName || d.invoiceFileData) {
+                            d.invoiceFile = {
+                                filename: d.invoiceFileName || null,
+                                type: d.invoiceFileType || null,
+                                size: d.invoiceFileSize || null,
+                                data: d.invoiceFileData || null,
+                                tooLarge: d.invoiceFileTooLarge || false
                             };
-                            // Remove flattened fields
-                            delete data.invoiceFileName;
-                            delete data.invoiceFileType;
-                            delete data.invoiceFileSize;
-                            delete data.invoiceFileData;
-                            delete data.invoiceFileTooLarge;
+                            delete d.invoiceFileName;
+                            delete d.invoiceFileType;
+                            delete d.invoiceFileSize;
+                            delete d.invoiceFileData;
+                            delete d.invoiceFileTooLarge;
                         }
-                        return { id: doc.id, ...data };
+                        return { id: doc.id, ...d };
                     });
+                    localStorage.setItem('warehouseExpenses', JSON.stringify(data));
+                    return data;
                 } catch (error) {
                     console.error('Error loading expenses from Firebase:', error);
                     return getExpensesLocalStorage();
@@ -3070,20 +3090,31 @@
         }
 
         // Load expenses/budgets from Firebase (with localStorage fallback)
+        let appDataLoading = false;
         async function loadAppData() {
+            if (appDataLoading) return;
+            appDataLoading = true;
             try {
-                await initializeFirebase();
-                const [expData, budgetData] = await Promise.all([getExpenses(), getBudgets()]);
+                await withTimeout(initializeFirebase(), 25000, 'Connecting to server');
+                const [expData, budgetData] = await Promise.all([
+                    getExpenses(),
+                    getBudgets()
+                ]);
                 expenses = expData;
                 budgets = budgetData;
             } catch (error) {
                 console.error('Error loading app data:', error);
                 expenses = getExpensesLocalStorage();
                 budgets = getBudgetsLocalStorage();
+                if (currentUser && (users[currentUser]?.role === 'approver' || users[currentUser]?.role === 'master')) {
+                    showToast('warning', 'Connection', error.message || 'Could not reach server. Showing cached data.');
+                }
+            } finally {
+                appDataLoading = false;
+                displayExpenses();
+                updateSummary();
+                displayApprovals();
             }
-            displayExpenses();
-            updateSummary();
-            displayApprovals();
         }
 
         // Show app UI after successful login (fast path)
@@ -3117,7 +3148,6 @@
                 }
                 applyRoleBasedUI(username);
                 if (users[username].role === 'master') loadUsers();
-                loadAppData();
             } catch (error) {
                 console.error('Background user sync failed:', error);
             }
@@ -3270,22 +3300,16 @@
                         }
                     });
                 }
-                // Only reload if cache is stale (more than 5 seconds old)
+                // Reload expenses (always init Firebase first — fixes stuck loading on new laptops)
                 const now = Date.now();
                 if (now - lastApprovalsLoad > APPROVALS_CACHE_TIME) {
                     lastApprovalsLoad = now;
-                    // Show loading indicator
                     const approvalsList = document.getElementById('approvalsList');
                     if (approvalsList) {
                         approvalsList.innerHTML = '<div class="empty-state"><div style="font-size: 2rem; margin-bottom: 10px;">⏳</div><p>Loading approvals...</p></div>';
                     }
-                    // Reload expenses asynchronously
-                    (async () => {
-                        expenses = await getExpenses();
-                        requestAnimationFrame(() => displayApprovals());
-                    })();
+                    loadAppData();
                 } else {
-                    // Use cached data, but refresh display to respect current filter
                     requestAnimationFrame(() => displayApprovals());
                 }
             }
@@ -5076,7 +5100,13 @@
         
         function displayApprovals() {
             const approvalsList = document.getElementById('approvalsList');
-            
+            if (!approvalsList) return;
+            if (!currentUser || !users[currentUser]) {
+                approvalsList.innerHTML = '<div class="empty-state"><p>Loading user data...</p></div>';
+                return;
+            }
+
+            try {
             // Determine which expenses to show based on user role and approval levels
             let expensesToShow = [];
             
@@ -5365,6 +5395,15 @@
                 </div>
             `;
             }).join('');
+            } catch (err) {
+                console.error('displayApprovals error:', err);
+                approvalsList.innerHTML = `
+                    <div class="empty-state">
+                        <h3>Could not load approvals</h3>
+                        <p>${err.message || 'Please refresh the page or try again.'}</p>
+                        <button class="btn" onclick="loadAppData()" style="margin-top:12px;background:#667eea;color:white;">🔄 Retry</button>
+                    </div>`;
+            }
         }
 
         function filterApprovals(filter) {
