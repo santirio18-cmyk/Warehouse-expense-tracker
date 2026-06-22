@@ -3069,6 +3069,23 @@
             if (el('approvals')?.classList.contains('active')) debouncedDisplayApprovals();
         }
 
+        // Load expenses/budgets from Firebase (with localStorage fallback)
+        async function loadAppData() {
+            try {
+                await initializeFirebase();
+                const [expData, budgetData] = await Promise.all([getExpenses(), getBudgets()]);
+                expenses = expData;
+                budgets = budgetData;
+            } catch (error) {
+                console.error('Error loading app data:', error);
+                expenses = getExpensesLocalStorage();
+                budgets = getBudgetsLocalStorage();
+            }
+            displayExpenses();
+            updateSummary();
+            displayApprovals();
+        }
+
         // Show app UI after successful login (fast path)
         function completeLogin(username) {
             currentUser = username;
@@ -3077,19 +3094,13 @@
             document.getElementById('mainApp').style.display = 'block';
             applyRoleBasedUI(username);
             if (users[username].role === 'master') loadUsers();
-            Promise.all([
-                getExpenses().then(data => { expenses = data; }),
-                getBudgets().then(data => { budgets = data; })
-            ]).then(() => {
-                displayExpenses();
-                updateSummary();
-                displayApprovals();
-            }).catch(error => {
-                console.error('Error loading data:', error);
-                displayExpenses();
-                updateSummary();
-                displayApprovals();
-            });
+            // Show loading in lists while Firebase connects (critical on new devices with no cache)
+            const listEl = document.getElementById('expensesList');
+            const approvalsEl = document.getElementById('approvalsList');
+            const loadingHtml = '<div class="empty-state"><div style="font-size: 2rem; margin-bottom: 10px;">⏳</div><p>Loading expenses...</p></div>';
+            if (listEl) listEl.innerHTML = loadingHtml;
+            if (approvalsEl) approvalsEl.innerHTML = loadingHtml;
+            loadAppData();
         }
 
         // Sync users from Firebase in background after login (does not block UI)
@@ -3106,6 +3117,7 @@
                 }
                 applyRoleBasedUI(username);
                 if (users[username].role === 'master') loadUsers();
+                loadAppData();
             } catch (error) {
                 console.error('Background user sync failed:', error);
             }
