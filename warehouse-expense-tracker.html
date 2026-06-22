@@ -2948,8 +2948,7 @@
                     if (match) {
                         const warehouseValue = match[1];
                         if (warehouseValue === 'all') {
-                            // Show 'all' only if user has access to all warehouses
-                            button.style.display = (accessibleWarehouses.length === 28 || hasFullAccess) ? '' : 'none';
+                            button.style.display = '';
                         } else {
                             // Show button only if warehouse is accessible
                             button.style.display = accessibleWarehouses.includes(warehouseValue) || accessibleWarehouses.length === 28 || hasFullAccess ? '' : 'none';
@@ -3060,6 +3059,7 @@
                     }
                     const allOpt = el('warehouseSelect')?.querySelector('option[value="all"]');
                     if (allOpt) allOpt.remove();
+                    currentApprovalFilter = 'all';
                 }
             } else {
                 el('warehouseSelector').style.display = 'none';
@@ -3083,10 +3083,12 @@
             ]).then(() => {
                 displayExpenses();
                 updateSummary();
+                displayApprovals();
             }).catch(error => {
                 console.error('Error loading data:', error);
                 displayExpenses();
                 updateSummary();
+                displayApprovals();
             });
         }
 
@@ -3200,12 +3202,7 @@
                 currentWarehouse = accessibleWarehouses.length > 0 ? accessibleWarehouses[0] : 'warehouse_1';
                 warehouseSelect.value = currentWarehouse;
             }
-            // For master/admin and 2nd/3rd level approvers: warehouse selector doesn't change approval filter
-            // For other approvers: sync approval filter with warehouse selector
-            if (users[currentUser]?.role !== 'master' && !isFullAccessApprover) {
-                currentApprovalFilter = currentWarehouse;
-            }
-            // Update active state of approval filter buttons
+            // Warehouse selector is for expenses only — don't override approval filter
             document.querySelectorAll('#approvals .filter-btn').forEach(btn => {
                 btn.classList.remove('active');
                 const onclickAttr = btn.getAttribute('onclick');
@@ -3249,30 +3246,15 @@
                 requestAnimationFrame(() => loadUsers());
             }
             if (tabName === 'approvals') {
-                // For master/admin AND 2nd/3rd level approvers: Always default to 'All Pending' so Hubli, Patna, etc. all show
-                const hasFullApprovalAccess = users[currentUser]?.role === 'master' ||
-                    (ENABLE_2ND_LEVEL_APPROVAL && currentUser === SECOND_LEVEL_APPROVER_ID) ||
-                    (ENABLE_3RD_LEVEL_APPROVAL && currentUser === THIRD_LEVEL_APPROVER_ID);
-                if (hasFullApprovalAccess) {
+                // Default to All Pending for all approvers and admin
+                const role = users[currentUser]?.role;
+                if (role === 'master' || role === 'approver') {
                     currentApprovalFilter = 'all';
                     document.querySelectorAll('#approvals .filter-btn').forEach(btn => {
                         btn.classList.remove('active');
                         const onclickAttr = btn.getAttribute('onclick');
                         if (onclickAttr && onclickAttr.includes("filterApprovals('all')")) {
                             btn.classList.add('active');
-                        }
-                    });
-                } else if (currentWarehouse && currentWarehouse !== 'all' && (!currentApprovalFilter || currentApprovalFilter === 'all')) {
-                    // For other approvers: sync approval filter with warehouse selector
-                    currentApprovalFilter = currentWarehouse;
-                    document.querySelectorAll('#approvals .filter-btn').forEach(btn => {
-                        btn.classList.remove('active');
-                        const onclickAttr = btn.getAttribute('onclick');
-                        if (onclickAttr) {
-                            const match = onclickAttr.match(/filterApprovals\('([^']+)'\)/);
-                            if (match && match[1] === currentWarehouse) {
-                                btn.classList.add('active');
-                            }
                         }
                     });
                 }
@@ -5165,8 +5147,8 @@
                     }
                 } else {
                     // Show all assigned warehouses if no filter is set
-                    const userWarehouses = users[currentUser].warehouse.split(',');
-                    expensesToShow = expensesToShow.filter(expense => userWarehouses.includes(expense.warehouse));
+                    const userWarehouses = users[currentUser].warehouse.split(',').map(w => normalizeWarehouseId(w.trim())).filter(w => w);
+                    expensesToShow = expensesToShow.filter(expense => userWarehouses.includes(normalizeWarehouseId(expense.warehouse)));
                 }
             } else if (users[currentUser].role === 'master' && users[currentUser].warehouse && users[currentUser].warehouse !== '') {
                 // Master with warehouse restrictions: only see accessible warehouses
@@ -5203,10 +5185,14 @@
                     });
                 }
             } else if (currentWarehouse && currentWarehouse !== 'all') {
-                // If no approval filter is set but warehouse selector is set, use warehouse selector
-                // BUT: For master/admin users with 'All Pending' selected, show ALL expenses (Hubli, Patna, etc.)
-                if (users[currentUser].role === 'master' && (currentApprovalFilter === 'all' || !currentApprovalFilter)) {
-                    // Master with 'All Pending': show all pending expenses from all warehouses
+                // Warehouse selector is for expenses tab only — don't filter approvals when "All Pending" is selected
+                if (currentApprovalFilter === 'all' || !currentApprovalFilter) {
+                    // Show all accessible warehouses' pending approvals
+                    if (users[currentUser].role === 'approver' || users[currentUser].role === 'master') {
+                        expensesToShow = expensesToShow.filter(expense =>
+                            accessibleWarehouses.includes(expense.warehouse)
+                        );
+                    }
                 } else {
                     expensesToShow = expensesToShow.filter(expense => {
                         const expenseWarehouse = String(expense.warehouse || '').trim();
